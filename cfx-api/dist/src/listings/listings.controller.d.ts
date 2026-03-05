@@ -15,20 +15,20 @@ export declare class ListingsController {
             material: string;
             condition: number;
             styleEmbedding: number[];
-            insulation: number;
-            waterproof: number;
             status: import("@prisma/client").$Enums.ItemStatus;
             photos: import("@prisma/client/runtime/client").JsonValue | null;
+            insulation: number;
+            waterproof: number;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        itemId: string;
         intent: import("@prisma/client").$Enums.Intent;
         availabilityStart: Date | null;
         availabilityEnd: Date | null;
         rentalTerms: import("@prisma/client/runtime/client").JsonValue | null;
-        itemId: string;
     }>;
     findAll(): Promise<({
         item: {
@@ -42,20 +42,20 @@ export declare class ListingsController {
             material: string;
             condition: number;
             styleEmbedding: number[];
-            insulation: number;
-            waterproof: number;
             status: import("@prisma/client").$Enums.ItemStatus;
             photos: import("@prisma/client/runtime/client").JsonValue | null;
+            insulation: number;
+            waterproof: number;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        itemId: string;
         intent: import("@prisma/client").$Enums.Intent;
         availabilityStart: Date | null;
         availabilityEnd: Date | null;
         rentalTerms: import("@prisma/client/runtime/client").JsonValue | null;
-        itemId: string;
     })[]>;
     findOne(id: string): Promise<{
         item: {
@@ -69,19 +69,19 @@ export declare class ListingsController {
             material: string;
             condition: number;
             styleEmbedding: number[];
-            insulation: number;
-            waterproof: number;
             status: import("@prisma/client").$Enums.ItemStatus;
             photos: import("@prisma/client/runtime/client").JsonValue | null;
+            insulation: number;
+            waterproof: number;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        itemId: string;
         intent: import("@prisma/client").$Enums.Intent;
         availabilityStart: Date | null;
         availabilityEnd: Date | null;
         rentalTerms: import("@prisma/client/runtime/client").JsonValue | null;
-        itemId: string;
     }>;
 }

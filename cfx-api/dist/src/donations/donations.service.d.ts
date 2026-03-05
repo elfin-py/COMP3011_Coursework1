@@ -8,9 +8,9 @@ export declare class DonationsService {
             createdAt: Date;
             status: string;
             itemId: string;
+            recyclerId: string;
             allocatedKg: number;
             impactEstimate: number;
-            recyclerId: string;
         };
         rationale: {
             recycler: string;

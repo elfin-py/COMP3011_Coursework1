@@ -12,6 +12,7 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
     create(dto: CreateUserDto): Promise<{
         profile: {
             id: string;
+            userId: string;
             styleTags: string[];
             sizes: import("@prisma/client/runtime/client").JsonValue;
             cityLat: number;
@@ -22,7 +23,6 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
             dailyDigestHour: number;
             emailDigestEnabled: boolean;
             lastDigestSentAt: Date | null;
-            userId: string;
         } | null;
     } & {
         id: string;
