@@ -35,11 +35,52 @@ let ItemsService = class ItemsService {
             },
         });
     }
-    async findOne(id) {
+    findAll(ownerId) {
+        return this.prisma.item.findMany({
+            where: { ownerId },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async findOne(ownerId, id) {
         const item = await this.prisma.item.findUnique({ where: { id } });
         if (!item)
             throw new common_1.NotFoundException('Item not found');
+        if (item.ownerId !== ownerId) {
+            throw new common_1.ForbiddenException('You can only view your own items');
+        }
         return item;
+    }
+    async update(ownerId, id, dto) {
+        const existing = await this.prisma.item.findUnique({ where: { id } });
+        if (!existing)
+            throw new common_1.NotFoundException('Item not found');
+        if (existing.ownerId !== ownerId) {
+            throw new common_1.ForbiddenException('You can only update your own items');
+        }
+        return this.prisma.item.update({
+            where: { id },
+            data: {
+                category: dto.category,
+                sizeLabel: dto.sizeLabel,
+                material: dto.material,
+                condition: dto.condition,
+                styleEmbedding: dto.styleEmbedding,
+                photos: dto.photos,
+                insulation: dto.insulation,
+                waterproof: dto.waterproof,
+                styleTags: dto.styleTags,
+                status: dto.status,
+            },
+        });
+    }
+    async remove(ownerId, id) {
+        const existing = await this.prisma.item.findUnique({ where: { id } });
+        if (!existing)
+            throw new common_1.NotFoundException('Item not found');
+        if (existing.ownerId !== ownerId) {
+            throw new common_1.ForbiddenException('You can only delete your own items');
+        }
+        await this.prisma.item.delete({ where: { id } });
     }
 };
 exports.ItemsService = ItemsService;
