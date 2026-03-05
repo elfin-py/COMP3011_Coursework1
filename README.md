@@ -61,7 +61,3 @@ pandoc docs/API_Documentation.md -t html -s -o docs/API_Documentation.html
 pandoc docs/API_Documentation.md -t plain -o /tmp/API_Documentation.txt
 cupsfilter -m application/pdf /tmp/API_Documentation.txt > docs/API_Documentation.pdf
 ```
-
-## Notes
-- Keep `.env` files private.
-- Use regular commits throughout development to show consistent version control.
