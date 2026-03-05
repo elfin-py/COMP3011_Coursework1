@@ -52,6 +52,25 @@ export class AuthService {
     return { user: this.sanitizeUser(user), tokens };
   }
 
+  async refresh(refreshToken: string) {
+    let payload: { sub: string; email: string; role: string };
+    try {
+      payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.usersService.findByEmail(payload.email);
+    if (!user || user.id !== payload.sub) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const tokens = this.issueTokens(user.id, user.email, user.role);
+    return { user: this.sanitizeUser(user), tokens };
+  }
+
   private issueTokens(id: string, email: string, role: string) {
     const payload = { sub: id, email, role };
     const accessToken = this.jwtService.sign(payload, {
