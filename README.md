@@ -1,6 +1,6 @@
-# Style Forecast Coursework 1
+# Style Forecast COMP3011 Coursework 1
 
-Full-stack coursework project for weather-aware and trend-aware outfit recommendations.
+Full-stack API coursework project for weather-aware and trend-aware outfit recommendations.
 
 ## Repository Contents
 - `cfx-api/`: NestJS + Prisma + PostgreSQL API
