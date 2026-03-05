@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItemDto } from './dto/create-item.dto';
+import { UpdateItemDto } from './dto/update-item.dto';
 export declare class ItemsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
@@ -20,7 +21,23 @@ export declare class ItemsService {
         insulation: number;
         waterproof: number;
     }, never, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
-    findOne(id: string): Promise<{
+    findAll(ownerId: string): Prisma.PrismaPromise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        styleTags: string[];
+        ownerId: string;
+        category: import("@prisma/client").$Enums.Category;
+        sizeLabel: string;
+        material: string;
+        condition: number;
+        styleEmbedding: number[];
+        status: import("@prisma/client").$Enums.ItemStatus;
+        photos: Prisma.JsonValue | null;
+        insulation: number;
+        waterproof: number;
+    }[]>;
+    findOne(ownerId: string, id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -36,4 +53,21 @@ export declare class ItemsService {
         insulation: number;
         waterproof: number;
     }>;
+    update(ownerId: string, id: string, dto: UpdateItemDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        styleTags: string[];
+        ownerId: string;
+        category: import("@prisma/client").$Enums.Category;
+        sizeLabel: string;
+        material: string;
+        condition: number;
+        styleEmbedding: number[];
+        status: import("@prisma/client").$Enums.ItemStatus;
+        photos: Prisma.JsonValue | null;
+        insulation: number;
+        waterproof: number;
+    }>;
+    remove(ownerId: string, id: string): Promise<void>;
 }
