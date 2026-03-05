@@ -9,31 +9,31 @@ export declare class ChatController {
                 items: ({
                     item: {
                         id: string;
-                        styleTags: string[];
                         createdAt: Date;
+                        updatedAt: Date;
+                        styleTags: string[];
                         ownerId: string;
                         category: import("@prisma/client").$Enums.Category;
                         sizeLabel: string;
                         material: string;
                         condition: number;
                         styleEmbedding: number[];
-                        insulation: number;
-                        waterproof: number;
                         status: import("@prisma/client").$Enums.ItemStatus;
                         photos: import("@prisma/client/runtime/client").JsonValue | null;
-                        updatedAt: Date;
+                        insulation: number;
+                        waterproof: number;
                     };
                 } & {
-                    outfitId: string;
                     itemId: string;
+                    outfitId: string;
                 })[];
             } & {
                 id: string;
+                createdAt: Date;
                 userId: string;
+                styleTags: string[];
                 name: string;
                 occasion: string | null;
-                styleTags: string[];
-                createdAt: Date;
             };
             score: {
                 total: number;

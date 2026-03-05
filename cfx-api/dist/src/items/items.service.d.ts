@@ -15,10 +15,10 @@ export declare class ItemsService {
         material: string;
         condition: number;
         styleEmbedding: number[];
-        insulation: number;
-        waterproof: number;
         status: import("@prisma/client").$Enums.ItemStatus;
         photos: Prisma.JsonValue | null;
+        insulation: number;
+        waterproof: number;
     }, never, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
     findOne(id: string): Promise<{
         id: string;
@@ -31,9 +31,9 @@ export declare class ItemsService {
         material: string;
         condition: number;
         styleEmbedding: number[];
-        insulation: number;
-        waterproof: number;
         status: import("@prisma/client").$Enums.ItemStatus;
         photos: Prisma.JsonValue | null;
+        insulation: number;
+        waterproof: number;
     }>;
 }

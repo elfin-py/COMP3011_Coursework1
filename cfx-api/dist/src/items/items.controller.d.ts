@@ -14,10 +14,10 @@ export declare class ItemsController {
         material: string;
         condition: number;
         styleEmbedding: number[];
-        insulation: number;
-        waterproof: number;
         status: import("@prisma/client").$Enums.ItemStatus;
         photos: import("@prisma/client/runtime/client").JsonValue | null;
+        insulation: number;
+        waterproof: number;
     }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findOne(id: string): Promise<{
         id: string;
@@ -30,9 +30,9 @@ export declare class ItemsController {
         material: string;
         condition: number;
         styleEmbedding: number[];
-        insulation: number;
-        waterproof: number;
         status: import("@prisma/client").$Enums.ItemStatus;
         photos: import("@prisma/client/runtime/client").JsonValue | null;
+        insulation: number;
+        waterproof: number;
     }>;
 }

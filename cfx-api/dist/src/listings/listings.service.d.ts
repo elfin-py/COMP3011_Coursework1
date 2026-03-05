@@ -16,20 +16,20 @@ export declare class ListingsService {
             material: string;
             condition: number;
             styleEmbedding: number[];
-            insulation: number;
-            waterproof: number;
             status: import("@prisma/client").$Enums.ItemStatus;
             photos: Prisma.JsonValue | null;
+            insulation: number;
+            waterproof: number;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        itemId: string;
         intent: import("@prisma/client").$Enums.Intent;
         availabilityStart: Date | null;
         availabilityEnd: Date | null;
         rentalTerms: Prisma.JsonValue | null;
-        itemId: string;
     }>;
     getPublicListings(): Promise<({
         item: {
@@ -43,20 +43,20 @@ export declare class ListingsService {
             material: string;
             condition: number;
             styleEmbedding: number[];
-            insulation: number;
-            waterproof: number;
             status: import("@prisma/client").$Enums.ItemStatus;
             photos: Prisma.JsonValue | null;
+            insulation: number;
+            waterproof: number;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        itemId: string;
         intent: import("@prisma/client").$Enums.Intent;
         availabilityStart: Date | null;
         availabilityEnd: Date | null;
         rentalTerms: Prisma.JsonValue | null;
-        itemId: string;
     })[]>;
     findById(id: string): Promise<{
         item: {
@@ -70,19 +70,19 @@ export declare class ListingsService {
             material: string;
             condition: number;
             styleEmbedding: number[];
-            insulation: number;
-            waterproof: number;
             status: import("@prisma/client").$Enums.ItemStatus;
             photos: Prisma.JsonValue | null;
+            insulation: number;
+            waterproof: number;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        itemId: string;
         intent: import("@prisma/client").$Enums.Intent;
         availabilityStart: Date | null;
         availabilityEnd: Date | null;
         rentalTerms: Prisma.JsonValue | null;
-        itemId: string;
     }>;
 }
