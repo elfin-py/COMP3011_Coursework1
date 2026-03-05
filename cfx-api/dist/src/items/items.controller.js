@@ -19,6 +19,7 @@ const current_user_decorator_1 = require("../common/decorators/current-user.deco
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const create_item_dto_1 = require("./dto/create-item.dto");
 const items_service_1 = require("./items.service");
+const update_item_dto_1 = require("./dto/update-item.dto");
 let ItemsController = class ItemsController {
     itemsService;
     constructor(itemsService) {
@@ -27,8 +28,17 @@ let ItemsController = class ItemsController {
     create(user, dto) {
         return this.itemsService.create(user.userId, dto);
     }
-    findOne(id) {
-        return this.itemsService.findOne(id);
+    findAll(user) {
+        return this.itemsService.findAll(user.userId);
+    }
+    findOne(user, id) {
+        return this.itemsService.findOne(user.userId, id);
+    }
+    update(user, id, dto) {
+        return this.itemsService.update(user.userId, id, dto);
+    }
+    async remove(user, id) {
+        await this.itemsService.remove(user.userId, id);
     }
 };
 exports.ItemsController = ItemsController;
@@ -41,12 +51,38 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ItemsController.prototype, "create", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ItemsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ItemsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_item_dto_1.UpdateItemDto]),
+    __metadata("design:returntype", void 0)
+], ItemsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, common_1.HttpCode)(204),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], ItemsController.prototype, "remove", null);
 exports.ItemsController = ItemsController = __decorate([
     (0, swagger_1.ApiTags)('items'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
