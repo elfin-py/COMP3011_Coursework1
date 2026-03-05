@@ -1,0 +1,245 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateClimateDto } from './climate.dto';
+
+@Injectable()
+export class ClimateService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private cityCoords: Record<string, { lat: number; lon: number }> = {
+    leeds: { lat: 53.8008, lon: -1.5491 },
+    london: { lat: 51.5072, lon: -0.1276 },
+    'new york': { lat: 40.7128, lon: -74.006 },
+    tokyo: { lat: 35.6762, lon: 139.6503 },
+    paris: { lat: 48.8566, lon: 2.3522 },
+    sydney: { lat: -33.8688, lon: 151.2093 },
+    toronto: { lat: 43.6532, lon: -79.3832 },
+    berlin: { lat: 52.52, lon: 13.405 },
+  };
+  private cityTimezones: Record<string, string> = {
+    leeds: 'Europe/London',
+    london: 'Europe/London',
+    'new york': 'America/New_York',
+    tokyo: 'Asia/Tokyo',
+    paris: 'Europe/Paris',
+    sydney: 'Australia/Sydney',
+    toronto: 'America/Toronto',
+    berlin: 'Europe/Berlin',
+  };
+
+  private normaliseLocation(location: string) {
+    const key = location.trim().toLowerCase();
+    const match = Object.keys(this.cityCoords).find((k) => key.includes(k));
+    return match || key;
+  }
+
+  private zonedDateTimeToUtc(datetime: string, tz?: string) {
+    if (!tz) return new Date(datetime);
+    const [datePart, timePart] = datetime.split('T');
+    if (!datePart || !timePart) return new Date(datetime);
+    const [y, m, d] = datePart.split('-').map(Number);
+    const [hh, mm] = timePart.split(':').map(Number);
+    const utcGuess = Date.UTC(y, (m || 1) - 1, d || 1, hh || 0, mm || 0);
+    const guessDate = new Date(utcGuess);
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(guessDate);
+    const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+    const wallMins = get('hour') * 60 + get('minute');
+    const targetWallMins = (hh || 0) * 60 + (mm || 0);
+    const offsetMins = targetWallMins - wallMins;
+    return new Date(utcGuess - offsetMins * 60_000);
+  }
+
+  private async geocode(location: string) {
+    const coordMatch = location.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (coordMatch) {
+      const lat = Number(coordMatch[1]);
+      const lon = Number(coordMatch[2]);
+      const tz = await this.timezoneForCoords(lat, lon);
+      return { lat, lon, timezone: tz || undefined };
+    }
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    if (data?.results?.length) {
+      const first = data.results[0];
+      return { lat: first.latitude, lon: first.longitude, timezone: first.timezone };
+    }
+    return null;
+  }
+
+  private async timezoneForCoords(lat: number, lon: number) {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return data?.timezone || null;
+  }
+
+  private async resolveLocationMeta(location: string) {
+    const key = this.normaliseLocation(location);
+    const coordFromMap = this.cityCoords[key];
+    const mappedTz = this.cityTimezones[key];
+    if (coordFromMap) {
+      return { ...coordFromMap, timezone: mappedTz };
+    }
+    const geo = await this.geocode(location);
+    if (!geo) return null;
+    return geo;
+  }
+
+  private formatLocalNowForTz(timezone: string) {
+    const parts = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: timezone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(new Date());
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+  }
+
+  async localNow(location: string) {
+    const meta = await this.resolveLocationMeta(location);
+    const timezone = meta?.timezone || 'UTC';
+    return {
+      timezone,
+      localNow: this.formatLocalNowForTz(timezone),
+    };
+  }
+
+  private async fetchLiveWeather(location: string, datetime?: string, tz?: string) {
+    const meta = await this.resolveLocationMeta(location);
+    if (!meta) return null;
+    const zone = meta.timezone || tz || 'auto';
+    const dt = datetime ? this.zonedDateTimeToUtc(datetime, zone) : new Date();
+
+    // fetch today and tomorrow to cover late-night selections
+    const dateStr = (d: Date) => d.toISOString().split('T')[0];
+    const today = dateStr(dt);
+    const tomorrow = dateStr(new Date(dt.getTime() + 24 * 60 * 60 * 1000));
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${meta.lat}&longitude=${meta.lon}&hourly=temperature_2m,relativehumidity_2m,precipitation_probability,windspeed_10m,weathercode&timezone=${encodeURIComponent(
+      zone,
+    )}&start_date=${today}&end_date=${tomorrow}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    if (!data.hourly) return null;
+    const hours: string[] = data.hourly.time;
+    const temps: number[] = data.hourly.temperature_2m;
+    const precip: number[] = data.hourly.precipitation_probability || [];
+    const wind: number[] = data.hourly.windspeed_10m || [];
+
+    const toMinutes = (s: string) => {
+      const [datePart, timePart = '00:00'] = s.split('T');
+      const [y, m, d] = datePart.split('-').map(Number);
+      const [hh, mm] = timePart.split(':').map(Number);
+      return Date.UTC(y || 0, (m || 1) - 1, d || 1, hh || 0, mm || 0);
+    };
+    const targetStr = datetime ? datetime : hours[0];
+    const targetMins = toMinutes(targetStr);
+    // pick exact matching hour if exists; else nearest
+    let idx = hours.findIndex((h) => {
+      const diff = Math.abs(toMinutes(h) - targetMins);
+      return diff <= 30 * 60 * 1000; // within 30 minutes
+    });
+    if (idx === -1) {
+      let bestDiff = Number.MAX_SAFE_INTEGER;
+      idx = 0;
+      hours.forEach((h, i) => {
+        const diff = Math.abs(toMinutes(h) - targetMins);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          idx = i;
+        }
+      });
+    }
+    const conditions = 'live forecast';
+    const validForRaw = hours[idx] || dt.toISOString();
+    const validForDate = validForRaw.includes('Z')
+      ? new Date(validForRaw)
+      : this.zonedDateTimeToUtc(validForRaw, zone);
+    return {
+      location,
+      capturedAt: new Date(),
+      validFor: validForDate,
+      temperatureC: temps[idx],
+      humidity: data.hourly.relativehumidity_2m?.[idx],
+      windKph: wind[idx],
+      precipProb: precip[idx],
+      conditions,
+    };
+  }
+
+  create(dto: CreateClimateDto) {
+    return this.prisma.climateSnapshot.create({
+      data: {
+        location: dto.location,
+        capturedAt: new Date(dto.capturedAt),
+        validFor: dto.validFor ? new Date(dto.validFor) : new Date(dto.capturedAt),
+        temperatureC: dto.temperatureC,
+        humidity: dto.humidity,
+        windKph: dto.windKph,
+        precipProb: dto.precipProb,
+        conditions: dto.conditions,
+      },
+    });
+  }
+
+  latest(location: string, datetime?: string, tz?: string, forceLive = false) {
+    const load = async () => {
+      const zone = (await this.resolveLocationMeta(location))?.timezone || tz;
+      if (forceLive) {
+        const live = await this.fetchLiveWeather(location, datetime, zone);
+        if (live) {
+          return this.prisma.climateSnapshot.create({ data: live });
+        }
+        // Accuracy-first path: when live fetch is requested, do not silently
+        // fall back to stale cached rows that may be on a different day/time.
+        return null;
+      }
+      if (datetime) {
+        const target = this.zonedDateTimeToUtc(datetime, zone);
+        const next = await this.prisma.climateSnapshot.findFirst({
+          where: { location, validFor: { gte: target } },
+          orderBy: [{ validFor: 'asc' }, { capturedAt: 'desc' }],
+        });
+        if (next?.validFor && Math.abs(new Date(next.validFor).getTime() - target.getTime()) < 3 * 60 * 60 * 1000)
+          return next;
+        const prev = await this.prisma.climateSnapshot.findFirst({
+          where: { location, validFor: { lte: target } },
+          orderBy: [{ validFor: 'desc' }, { capturedAt: 'desc' }],
+        });
+        if (prev?.validFor && Math.abs(new Date(prev.validFor).getTime() - target.getTime()) < 3 * 60 * 60 * 1000)
+          return prev;
+        const live = await this.fetchLiveWeather(location, datetime, zone);
+        if (live) {
+          return this.prisma.climateSnapshot.create({ data: live });
+        }
+        return null;
+      }
+      const latest = await this.prisma.climateSnapshot.findFirst({
+        where: { location },
+        orderBy: { capturedAt: 'desc' },
+      });
+      if (latest) return latest;
+      const live = await this.fetchLiveWeather(location, datetime, zone);
+      if (live) {
+        return this.prisma.climateSnapshot.create({ data: live });
+      }
+      return null;
+    };
+    return load();
+  }
+}

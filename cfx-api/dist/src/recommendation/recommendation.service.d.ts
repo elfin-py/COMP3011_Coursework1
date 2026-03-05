@@ -1,0 +1,69 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { ClimateService } from '../climate/climate.service';
+import { TrendsService } from '../trends/trends.service';
+import { FeedbackService } from '../feedback/feedback.service';
+type RecommendOptions = {
+    occasion?: string;
+    activity?: string;
+    styleTags?: string[];
+    avoidTags?: string[];
+    preferences?: string[];
+};
+export declare class RecommendationService {
+    private readonly prisma;
+    private readonly climateService;
+    private readonly trendsService;
+    private readonly feedbackService;
+    constructor(prisma: PrismaService, climateService: ClimateService, trendsService: TrendsService, feedbackService: FeedbackService);
+    recommendOutfit(userId: string | null, location: string, datetime?: string, options?: RecommendOptions): Promise<{
+        outfit: {
+            items: ({
+                item: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    styleTags: string[];
+                    ownerId: string;
+                    category: import("@prisma/client").$Enums.Category;
+                    sizeLabel: string;
+                    material: string;
+                    condition: number;
+                    styleEmbedding: number[];
+                    insulation: number;
+                    waterproof: number;
+                    status: import("@prisma/client").$Enums.ItemStatus;
+                    photos: import("@prisma/client/runtime/client").JsonValue | null;
+                };
+            } & {
+                itemId: string;
+                outfitId: string;
+            })[];
+        } & {
+            name: string;
+            id: string;
+            createdAt: Date;
+            styleTags: string[];
+            occasion: string | null;
+            userId: string;
+        };
+        score: {
+            total: number;
+            items: {
+                itemId: any;
+                tempScore: number;
+                precipPenalty: number;
+                windPenalty: number;
+                protection: number;
+                trendBoost: number;
+                userBoost: number;
+                total: number;
+            }[];
+        };
+        customBoost: number;
+    }>;
+    private customPreferenceBoost;
+    private scoreItem;
+    private trendBoost;
+    private tempMatch;
+}
+export {};
