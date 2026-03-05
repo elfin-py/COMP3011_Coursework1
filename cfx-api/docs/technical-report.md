@@ -74,4 +74,4 @@ Style Forecast is a climate- and trend-aware outfit recommendation system. It co
 - Add email delivery for daily recommendations.
 
 ## Generative AI Declaration
-Generative AI was used to assist with coding tasks, summarising design choices, and drafting documentation. All outputs were reviewed and edited to ensure correctness. AI-generated suggestions were implemented only after validation against the system’s functional requirements and observed behaviour.
+Generative AI was used to assist with small coding corrections and debugging, summarising design choices, and document scaffolding. All outputs were reviewed and edited to ensure correctness. AI-generated suggestions were implemented only after validation against the system’s functional requirements and observed behaviour.
