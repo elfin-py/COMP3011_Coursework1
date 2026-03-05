@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cfx
+      POSTGRES_PASSWORD: cfxpass
+      POSTGRES_DB: cfx
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cfx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  api:
+    build: .
+    command: npm run start:dev
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+volumes:
+  db-data:

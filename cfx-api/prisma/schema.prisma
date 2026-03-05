@@ -1,0 +1,252 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Category {
+  TOP
+  BOTTOM
+  SHOES
+  OUTER
+  ACCESSORY
+}
+
+enum ItemStatus {
+  AVAILABLE
+  RESERVED
+  IN_SWAP
+  DONATED
+  RECYCLED
+}
+
+enum Intent {
+  SWAP
+  RENT
+}
+
+enum TargetType {
+  MATCH
+  RECYCLER
+  RECOMMENDATION
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile   Profile?
+  items     Item[]
+  feedbacks Feedback[]
+  shipments Shipment[]   @relation("ShipmentFromUser")
+  auditLogs AuditLog[]
+  outfits   Outfit[]
+  outfitUsages OutfitUsage[]
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique
+  styleTags String[] @default([])
+  sizes     Json
+  cityLat   Float
+  cityLon   Float
+  homeLocation       String   @default("Leeds")
+  timezone           String   @default("Europe/London")
+  dailyDigestEnabled Boolean  @default(false)
+  dailyDigestHour    Int      @default(7)
+  emailDigestEnabled Boolean  @default(false)
+  lastDigestSentAt   DateTime?
+}
+
+model Item {
+  id             String      @id @default(uuid())
+  owner          User        @relation(fields: [ownerId], references: [id])
+  ownerId        String
+  category       Category
+  sizeLabel      String
+  material       String
+  condition      Int
+  styleEmbedding Float[]
+  insulation     Float       @default(0.5)
+  waterproof     Float       @default(0.0)
+  styleTags      String[]    @default([])
+  status         ItemStatus  @default(AVAILABLE)
+  photos         Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  listing   Listing?
+  matches   Match[]         @relation("MatchCandidate")
+  donations Donation[]
+  outfits   OutfitOnItems[]
+}
+
+model Listing {
+  id                String    @id @default(uuid())
+  item              Item      @relation(fields: [itemId], references: [id])
+  itemId            String    @unique
+  intent            Intent
+  availabilityStart DateTime?
+  availabilityEnd   DateTime?
+  rentalTerms       Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  matches Match[]
+}
+
+model Outfit {
+  id          String         @id @default(uuid())
+  user        User           @relation(fields: [userId], references: [id])
+  userId      String
+  name        String
+  occasion    String?
+  styleTags   String[]       @default([])
+  createdAt   DateTime       @default(now())
+  items       OutfitOnItems[]
+  usages      OutfitUsage[]
+}
+
+model OutfitOnItems {
+  outfit   Outfit @relation(fields: [outfitId], references: [id])
+  outfitId String
+  item     Item   @relation(fields: [itemId], references: [id])
+  itemId   String
+
+  @@id([outfitId, itemId])
+}
+
+model ClimateSnapshot {
+  id            String   @id @default(uuid())
+  location      String
+  capturedAt    DateTime @default(now())
+  validFor      DateTime?
+  temperatureC  Float
+  humidity      Float?
+  windKph       Float?
+  precipProb    Float?
+  conditions    String?
+  usages        OutfitUsage[]
+}
+
+model TrendSignal {
+  id                 String   @id @default(uuid())
+  season             String
+  colourTrendScore   Json?
+  materialPopularity Json?
+  capturedAt         DateTime @default(now())
+}
+
+model SocialTrend {
+  id         String   @id @default(uuid())
+  platform   String
+  tag        String
+  volume     Int
+  sentiment  Float?
+  capturedAt DateTime @default(now())
+}
+
+model OutfitUsage {
+  id                String           @id @default(uuid())
+  outfit            Outfit           @relation(fields: [outfitId], references: [id])
+  outfitId          String
+  user              User             @relation(fields: [userId], references: [id])
+  userId            String
+  location          String
+  usedAt            DateTime         @default(now())
+  temperatureC      Float?
+  precipProb        Float?
+  windKph           Float?
+  climateSnapshot   ClimateSnapshot? @relation(fields: [climateSnapshotId], references: [id])
+  climateSnapshotId String?
+
+  createdAt DateTime @default(now())
+}
+
+model Match {
+  id               String   @id @default(uuid())
+  listing          Listing  @relation(fields: [listingId], references: [id])
+  listingId        String
+  candidateItem    Item     @relation("MatchCandidate", fields: [candidateItemId], references: [id])
+  candidateItemId  String
+  score            Float
+  breakdown        Json
+  status           String   @default("PENDING")
+  createdAt        DateTime @default(now())
+}
+
+model Recycler {
+  id          String   @id @default(uuid())
+  name        String
+  materials   String[]
+  distanceKm  Float
+  capacityKg  Float
+  co2PerKg    Float
+  createdAt   DateTime @default(now())
+  donations   Donation[]
+}
+
+model Donation {
+  id             String    @id @default(uuid())
+  item           Item      @relation(fields: [itemId], references: [id])
+  itemId         String
+  recycler       Recycler  @relation(fields: [recyclerId], references: [id])
+  recyclerId     String
+  allocatedKg    Float
+  impactEstimate Float
+  status         String    @default("PENDING")
+  createdAt      DateTime  @default(now())
+}
+
+model Shipment {
+  id          String    @id @default(uuid())
+  fromUser    User      @relation("ShipmentFromUser", fields: [fromUserId], references: [id])
+  fromUserId  String
+  toUserId    String?
+  recyclerId  String?
+  eta         DateTime?
+  labelUrl    String?
+  status      String    @default("CREATED")
+  createdAt   DateTime  @default(now())
+}
+
+model Feedback {
+  id         String     @id @default(uuid())
+  user       User       @relation(fields: [userId], references: [id])
+  userId     String
+  targetType TargetType
+  targetId   String
+  rating     Int
+  note       String?
+  createdAt  DateTime   @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}

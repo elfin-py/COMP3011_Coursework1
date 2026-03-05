@@ -1,0 +1,11 @@
+{
+  "platform": "synthetic",
+  "capturedAt": "2026-02-06T12:00:00Z",
+  "tags": [
+    { "tag": "suede", "volume": 1200 },
+    { "tag": "puffer", "volume": 3200 },
+    { "tag": "cargo", "volume": 2100 },
+    { "tag": "emerald", "volume": 900 },
+    { "tag": "denim", "volume": 2800 }
+  ]
+}
