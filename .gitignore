@@ -1,0 +1,12 @@
+# Global secret/environment files
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Keep examples tracked
+!.env.example
+!**/.env.example
+
+# OS/editor
+.DS_Store
