@@ -34,6 +34,20 @@ export declare class AuthService {
             refreshToken: string;
         };
     }>;
+    refresh(refreshToken: string): Promise<{
+        user: Omit<{
+            id: string;
+            email: string;
+            passwordHash: string;
+            role: import("@prisma/client").$Enums.Role;
+            createdAt: Date;
+            updatedAt: Date;
+        }, "passwordHash">;
+        tokens: {
+            accessToken: string;
+            refreshToken: string;
+        };
+    }>;
     private issueTokens;
     private sanitizeUser;
 }
