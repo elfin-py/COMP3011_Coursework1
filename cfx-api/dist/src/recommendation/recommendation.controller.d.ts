@@ -16,22 +16,22 @@ export declare class RecommendationController {
                     material: string;
                     condition: number;
                     styleEmbedding: number[];
-                    insulation: number;
-                    waterproof: number;
                     status: import("@prisma/client").$Enums.ItemStatus;
                     photos: import("@prisma/client/runtime/client").JsonValue | null;
+                    insulation: number;
+                    waterproof: number;
                 };
             } & {
                 itemId: string;
                 outfitId: string;
             })[];
         } & {
-            name: string;
             id: string;
             createdAt: Date;
-            styleTags: string[];
-            occasion: string | null;
             userId: string;
+            styleTags: string[];
+            name: string;
+            occasion: string | null;
         };
         score: {
             total: number;
