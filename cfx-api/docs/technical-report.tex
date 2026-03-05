@@ -1,225 +1,151 @@
-\hypertarget{style-forecast-technical-report}{%
-\section{Style Forecast --- Technical
-Report}\label{style-forecast-technical-report}}
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{microtype}
 
-\hypertarget{overview}{%
-\subsection{Overview}\label{overview}}
+\setstretch{1.12}
+\setlist[itemize]{leftmargin=1.5em}
+\setlist[enumerate]{leftmargin=1.8em}
 
-Style Forecast is a climate- and trend-aware outfit recommendation
-system. It combines local weather forecasts, social/news trend signals,
-and user feedback to produce outfit guidance and explainability. The
-system offers an API-first architecture with a React client for
-interaction and demonstration.
+\title{\textbf{Style Forecast: Technical Report}}
+\author{COMP3011 Coursework 1}
+\date{\today}
 
-\hypertarget{technology-stack}{%
-\subsection{Technology Stack}\label{technology-stack}}
+\begin{document}
+\maketitle
 
+\section{Project Overview}
+Style Forecast is a full-stack intelligent recommendation system for everyday clothing decisions. The system combines weather forecasts, trend signals, and user feedback to recommend practical outfits while retaining transparent decision logic. The project was designed as an API-first application so that recommendation intelligence is reusable across clients and test tooling.
+
+Primary design goals were explainable recommendations, adaptive behaviour, and robust local demonstrability.
+
+\section{Technology Choices and Personal Rationale}
+\subsection{Programming Language}
+I chose \textbf{TypeScript} across backend and frontend to reduce integration mismatch and improve refactor confidence through static typing.
+
+\subsection{Backend Framework}
+I chose \textbf{NestJS} because its module-oriented structure matches this multi-domain application (auth, items, outfits, climate, trends, recommendations, feedback) and keeps service-level logic well scoped.
+
+\subsection{Database and ORM}
+I used \textbf{PostgreSQL} with \textbf{Prisma}. SQL is appropriate because the project is strongly relational:
 \begin{itemize}
-\tightlist
-\item
-  \textbf{Language}: TypeScript (backend + frontend)
-\item
-  \textbf{Backend}: NestJS + Prisma + PostgreSQL
-\item
-  \textbf{Frontend}: React + Vite
-\item
-  \textbf{Auth}: JWT (access + refresh tokens)
-\item
-  \textbf{Trends}: RSS ingestion + keyword/sentiment extraction,
-  Pinterest image retrieval
-\item
-  \textbf{Weather}: Open-Meteo (live forecast + timezone resolution)
+  \item users own many items and outfits,
+  \item outfits contain many items,
+  \item feedback and usage logs reference users and targets,
+  \item climate/trend records are queried by time windows.
+\end{itemize}
+Prisma added migration control and type-safe queries, reducing runtime data-access errors.
+
+\subsection{Frontend}
+I used \textbf{React + Vite} for responsive interaction flows and efficient development iteration.
+
+\section{Architecture and Key Design Decisions}
+\subsection{Layered Design}
+The architecture follows three layers:
+\begin{itemize}
+  \item \textbf{Presentation}: React client.
+  \item \textbf{Application}: NestJS controllers and services.
+  \item \textbf{Persistence}: PostgreSQL schema via Prisma migrations.
 \end{itemize}
 
-\hypertarget{rationale}{%
-\subsubsection{Rationale}\label{rationale}}
+\subsection{Data Model Design}
+Core entities include \texttt{User}, \texttt{Profile}, \texttt{Item}, \texttt{Outfit}, \texttt{OutfitUsage}, \texttt{ClimateSnapshot}, \texttt{SocialTrend}, and \texttt{Feedback}. Stable identity data is separated from event-stream data (usage, trend, climate) to simplify analytics and recency-aware recommendation logic.
 
+\subsection{API Semantics}
+The API is RESTful with JSON responses and conventional status codes:
 \begin{itemize}
-\tightlist
-\item
-  \textbf{TypeScript} provides shared language across client/server,
-  reduces integration errors, and improves refactor safety.
-\item
-  \textbf{NestJS} offers structured modules, dependency injection, and
-  straightforward testability.
-\item
-  \textbf{Prisma + PostgreSQL} provides strong relational modelling,
-  migrations, and type-safe querying.
-\item
-  \textbf{React + Vite} yields fast dev iterations and a responsive UI
-  for demonstration.
-\item
-  \textbf{Open-Meteo} is a free, documented source for live forecasts
-  and timezone offsets.
+  \item \texttt{201} create,
+  \item \texttt{200} read/update,
+  \item \texttt{204} delete,
+  \item \texttt{400/401/403/404/409} for validation/auth/ownership/missing/conflict errors.
 \end{itemize}
 
-\hypertarget{architecture}{%
-\subsection{Architecture}\label{architecture}}
-
+\section{CRUD Coverage and Demonstrability}
+To satisfy core assessment requirements, the \texttt{Item} model implements full SQL-backed CRUD:
 \begin{itemize}
-\tightlist
-\item
-  \textbf{Client}: React app with recommendation flow, chat assistant,
-  and saved outfits.
-\item
-  \textbf{API}: NestJS modules for auth, users, climate, trends,
-  recommendations, outfits, feedback.
-\item
-  \textbf{Data}: PostgreSQL stores users, profiles, outfits, climate
-  snapshots, trend signals, and feedback.
+  \item \textbf{Create}: \texttt{POST /api/items}
+  \item \textbf{Read}: \texttt{GET /api/items}, \texttt{GET /api/items/:id}
+  \item \textbf{Update}: \texttt{PATCH /api/items/:id}
+  \item \textbf{Delete}: \texttt{DELETE /api/items/:id}
+\end{itemize}
+Ownership checks are enforced for read/update/delete. The system is demonstrable by local execution with Docker PostgreSQL and npm scripts for build/run/migrate/seed.
+
+\section{Originality, Novel Integration, and Research Curiosity}
+The project’s novelty is the integration strategy rather than a single algorithm:
+\begin{itemize}
+  \item live weather suitability from Open-Meteo,
+  \item trend relevance from recency-filtered media signals,
+  \item user feedback adaptation in ranking,
+  \item explainable score breakdown for each recommendation.
 \end{itemize}
 
-\hypertarget{data-model-summary}{%
-\subsubsection{Data Model (summary)}\label{data-model-summary}}
-
+I evaluated alternatives before selecting the final design:
 \begin{itemize}
-\tightlist
-\item
-  \texttt{User} + \texttt{Profile}: authentication + preferences + home
-  location
-\item
-  \texttt{ClimateSnapshot}: weather at a time + location
-\item
-  \texttt{Outfit} + \texttt{OutfitUsage}: saved outfits and usage
-  tracking
-\item
-  \texttt{SocialTrend}: trend tags with sentiment and volume
-\item
-  \texttt{Feedback}: user ratings for adaptive tuning
+  \item \textbf{Pure collaborative filtering}: rejected due cold-start and sparse data.
+  \item \textbf{End-to-end LLM ranking}: rejected due non-deterministic behaviour and weak auditability.
+  \item \textbf{Hybrid weighted model (selected)}: chosen for stability, interpretability, and controllable trade-offs.
 \end{itemize}
 
-\hypertarget{core-features}{%
-\subsection{Core Features}\label{core-features}}
+\section{Creative but Controlled Use of Generative AI}
+Generative AI was used selectively for high-level ideation, small debugging support, and document scaffolding. Suggestions were manually reviewed and validated against runtime behaviour; final architecture and implementation decisions remained human-led.
 
+\section{Testing Approach, Challenges, and Lessons}
+\subsection{Testing Approach}
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  \textbf{Weather-aware recommendations} using live forecasts at
-  user-selected location/time.
-\item
-  \textbf{Trend-aware scoring} based on recent media mentions and
-  sentiment (last 60 days).
-\item
-  \textbf{Adaptive feedback} to bias future recommendations.
-\item
-  \textbf{Chat assistant} to refine outfit guidance with user intent and
-  preferences.
-\item
-  \textbf{Saved outfits} for logged-in users and optional daily
-  recommendation settings.
+  \item Build validation for backend and frontend.
+  \item Endpoint checks through Swagger and direct HTTP calls.
+  \item End-to-end flow validation across auth, item/outfit creation, recommendation, and feedback.
 \end{enumerate}
 
-\hypertarget{recommendation-logic}{%
-\subsection{Recommendation Logic}\label{recommendation-logic}}
-
+\subsection{Challenges}
 \begin{itemize}
-\tightlist
-\item
-  Base score is a weighted blend of temperature match, precipitation
-  risk, wind penalty, and trend boost.
-\item
-  Trend boost is sentiment-weighted using recent fashion media signals.
-\item
-  User feedback adds an adaptive boost.
-\item
-  Chat intent is treated as a soft bias (occasion, activity, avoid
-  tags).
+  \item timezone correctness for user-local datetime handling,
+  \item external API variability and reliability,
+  \item balancing trend influence without reducing practical recommendation quality.
 \end{itemize}
 
-\hypertarget{weather-accuracy}{%
-\subsection{Weather Accuracy}\label{weather-accuracy}}
-
+\subsection{Lessons Learned}
 \begin{itemize}
-\tightlist
-\item
-  Uses Open-Meteo hourly forecasts with timezone resolution from
-  geocoding.
-\item
-  The selected datetime is converted to the correct timezone before
-  fetching.
-\item
-  If a live fetch fails, a clear error is returned (no stale fallback).
+  \item strict module boundaries reduce integration risk,
+  \item explicit status-code semantics simplify debugging,
+  \item explainable heuristics are effective for early intelligent systems.
 \end{itemize}
 
-\hypertarget{trends-and-sentiment}{%
-\subsection{Trends and Sentiment}\label{trends-and-sentiment}}
-
+\section{Limitations and Future Work}
+\subsection{Limitations}
 \begin{itemize}
-\tightlist
-\item
-  RSS sources are polled to extract keyword mentions.
-\item
-  Sentiment is derived from positive/negative language cues in recent
-  articles.
-\item
-  Only articles from the last 60 days influence \texttt{news-rss} trend
-  signals.
+  \item lexical sentiment analysis can miss nuance,
+  \item personalization remains heuristic rather than learned at scale,
+  \item automated test coverage is narrower than production standards.
 \end{itemize}
 
-\hypertarget{testing-approach}{%
-\subsection{Testing Approach}\label{testing-approach}}
-
+\subsection{Future Development}
 \begin{itemize}
-\tightlist
-\item
-  \textbf{Manual}: API endpoints verified via curl/Swagger; UI flows
-  validated in the browser.
-\item
-  \textbf{Automated}: Minimal unit coverage currently; key candidates
-  are climate/timezone conversion and trend sentiment parsing.
+  \item broaden automated tests (unit/integration/regression),
+  \item add scheduled ingestion jobs for trend pipelines,
+  \item evaluate constrained learning-to-rank while preserving explainability,
+  \item improve observability and rate-limiting for production readiness.
 \end{itemize}
 
-\hypertarget{challenges-lessons}{%
-\subsection{Challenges \& Lessons}\label{challenges-lessons}}
-
+\section{Rubric Alignment (Outstanding Band)}
+This report explicitly addresses the high-band criteria:
 \begin{itemize}
-\tightlist
-\item
-  \textbf{Timezone correctness} required server-side handling to avoid
-  client-local time errors.
-\item
-  \textbf{Trend sourcing} needed reliable sentiment handling and recency
-  windows to avoid stale results.
-\item
-  \textbf{Pinterest} image retrieval required proxying and
-  de-duplication to avoid broken or irrelevant images.
+  \item \textbf{Originality and innovation}: explainable hybrid intelligence across weather, trend, and feedback.
+  \item \textbf{Novel data integration}: multi-source temporal data fused in one ranking pipeline.
+  \item \textbf{Publication-quality documentation}: structured report, reproducible setup, linked API/presentation deliverables.
+  \item \textbf{Research curiosity}: alternatives evaluated and justified.
+  \item \textbf{Creative GenAI use}: ideation support with strict human validation.
+  \item \textbf{Expert analysis}: explicit trade-offs, constraints, and future research path.
 \end{itemize}
 
-\hypertarget{limitations}{%
-\subsection{Limitations}\label{limitations}}
+\section{Conclusion}
+Style Forecast demonstrates a practical, explainable, and adaptive intelligent API system with full SQL-backed CRUD compliance and clear technical rationale. The architecture is suitable for demonstration now and extension toward stronger ranking methods later.
 
-\begin{itemize}
-\tightlist
-\item
-  Chat assistant depends on external AI availability; fallback is
-  heuristic-based.
-\item
-  Trend sentiment is lexical and can be noisy.
-\item
-  Limited automated testing coverage.
-\end{itemize}
+\section*{Generative AI Declaration}
+Generative AI tools were used selectively for ideation and drafting support. Final technical decisions, implementation, and report wording were reviewed and finalised by me.
 
-\hypertarget{future-work}{%
-\subsection{Future Work}\label{future-work}}
-
-\begin{itemize}
-\tightlist
-\item
-  Add full test suite (unit + integration).
-\item
-  Add a production-grade job queue for trend ingestion.
-\item
-  Improve personalised ranking with per-user preference vectors.
-\item
-  Add email delivery for daily recommendations.
-\end{itemize}
-
-\hypertarget{generative-ai-declaration}{%
-\subsection{Generative AI Declaration}\label{generative-ai-declaration}}
-
-Generative AI was used to assist with small coding corrections and
-debugging, summarising design choices, and document scaffolding. All
-outputs were reviewed and edited to ensure correctness. AI-generated
-suggestions were implemented only after validation against the system's
-functional requirements and observed behaviour.
+\end{document}

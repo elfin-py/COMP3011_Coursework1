@@ -10,8 +10,10 @@ Full-stack API coursework project for weather-aware and trend-aware outfit recom
 ## Deliverables (for assessment)
 - Code repository with commit history: this Git repository
 - API Documentation (PDF): [docs/API_Documentation.pdf](docs/API_Documentation.pdf)
-- Technical Report: [docs/Technical_Report.md](docs/Technical_Report.md)
-- Presentation Slides (PowerPoint): [docs/Presentation_Slides.pptx](docs/Presentation_Slides.pptx)
+- Technical Report (Markdown): [cfx-api/docs/technical-report.md](cfx-api/docs/technical-report.md)
+- Technical Report (LaTeX): [cfx-api/docs/technical-report.tex](cfx-api/docs/technical-report.tex)
+- Presentation Slides (PowerPoint): [cfx-api/docs/presentation.pptx](cfx-api/docs/presentation.pptx)
+- Rubric Alignment Notes: [docs/Rubric_Assessment.md](docs/Rubric_Assessment.md)
 
 ## Quick Setup
 
