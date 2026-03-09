@@ -28,16 +28,17 @@ describe('Happy path flow (e2e)', () => {
 
   it('registers and logs in', async () => {
     const email = `test${Date.now()}@example.com`;
-    const password = 'password123';
+    const username = `testuser${Date.now()}`;
+    const password = 'Password1';
 
     await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send({ email, password, cityLat: 53.8, cityLon: -1.55 })
+      .send({ username, email, password, cityLat: 53.8, cityLon: -1.55 })
       .expect(201);
 
     const login = await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ email, password })
+      .send({ identifier: username, password })
       .expect(201);
 
     token = login.body.tokens.accessToken;

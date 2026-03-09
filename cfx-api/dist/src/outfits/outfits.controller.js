@@ -19,6 +19,7 @@ const current_user_decorator_1 = require("../common/decorators/current-user.deco
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const create_outfit_dto_1 = require("./dto/create-outfit.dto");
 const log_usage_dto_1 = require("./dto/log-usage.dto");
+const toggle_saved_recommendation_dto_1 = require("./dto/toggle-saved-recommendation.dto");
 const outfits_service_1 = require("./outfits.service");
 let OutfitsController = class OutfitsController {
     outfitsService;
@@ -31,8 +32,14 @@ let OutfitsController = class OutfitsController {
     findAll(user) {
         return this.outfitsService.findAll(user.userId);
     }
+    findSaved(user) {
+        return this.outfitsService.getSavedRecommendations(user.userId);
+    }
     logUsage(user, id, dto) {
         return this.outfitsService.logUsage(user.userId, id, dto);
+    }
+    toggleSaved(user, dto) {
+        return this.outfitsService.toggleSavedRecommendation(user.userId, dto);
     }
 };
 exports.OutfitsController = OutfitsController;
@@ -52,6 +59,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], OutfitsController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Get)('saved'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OutfitsController.prototype, "findSaved", null);
+__decorate([
     (0, common_1.Post)(':id/usage'),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -60,6 +74,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, log_usage_dto_1.LogUsageDto]),
     __metadata("design:returntype", void 0)
 ], OutfitsController.prototype, "logUsage", null);
+__decorate([
+    (0, common_1.Post)('saved/toggle'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, toggle_saved_recommendation_dto_1.ToggleSavedRecommendationDto]),
+    __metadata("design:returntype", void 0)
+], OutfitsController.prototype, "toggleSaved", null);
 exports.OutfitsController = OutfitsController = __decorate([
     (0, swagger_1.ApiTags)('outfits'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

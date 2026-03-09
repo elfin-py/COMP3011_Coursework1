@@ -1,131 +1,83 @@
 # Style Forecast — Technical Report
 
-## 1. Project Overview
-Style Forecast is a full-stack intelligent recommendation system for everyday clothing decisions. The system combines weather forecasts, trend signals, and user feedback to recommend practical outfits while retaining transparent decision logic. The project was designed as an API-first application so that recommendation intelligence is reusable across clients and test tooling.
+## Overview
+Style Forecast is an API-first outfit recommendation system designed for a practical everyday problem: people often have limited time when getting ready, incomplete awareness of weather conditions at a chosen time, and only partial knowledge of current style trends. The system aims to bridge that knowledge gap by combining weather, trend, and user-preference signals into a recommendation that helps the user feel both comfortable and confident.
 
-Primary design goals were:
-- explainable recommendations rather than opaque ranking,
-- adaptive behaviour that improves with interaction,
-- robust local demonstrability for assessment and oral presentation.
+The central design objective was not simply to return an outfit, but to return one that is appropriate for climate, relevant to current fashion context, and explainable enough to earn user trust. This led to three guiding priorities: explainability, adaptive usefulness, and robust local demonstrability.
 
-## 2. Technology Choices and Personal Rationale
+## Methodology
 
-### 2.1 Language
-I chose **TypeScript** across backend and frontend to reduce integration mismatch and improve refactor confidence through static typing.
+### Problem Framing and Design Approach
+The project was approached as a decision-support system rather than a generic fashion catalogue. That distinction shaped the methodology. A recommendation is only useful if it reduces uncertainty at the point of decision-making, so the model needs to reason about context, not only preference. For that reason, the chosen methodology combines:
+- **weather suitability**, to reduce the risk of physical discomfort,
+- **trend relevance**, to reflect recent fashion signals,
+- **user feedback adaptation**, to avoid static, one-size-fits-all behaviour.
 
-### 2.2 Backend
-I chose **NestJS** because its modular service/controller architecture fits a multi-domain project (auth, items, outfits, climate, trends, recommendations, feedback) and supports maintainable boundaries.
+I considered alternative approaches before selecting the final model. Pure collaborative filtering was not suitable because the dataset is small and suffers from cold-start problems. An end-to-end LLM ranking approach was also considered, but rejected because it would be harder to audit, less deterministic, and less reliable for a live assessment setting. I therefore chose a hybrid weighted model that exposes its reasoning while still incorporating multiple data sources.
 
-### 2.3 Database and Data Access
-I chose **PostgreSQL** with **Prisma ORM**.
+### Architecture Overview
+The system is structured in three layers:
+- **Presentation**: React + Vite client for user interaction and feedback.
+- **Application**: NestJS API modules for auth, items, outfits, climate, trends, and recommendation logic.
+- **Persistence and data sources**: PostgreSQL via Prisma for internal state, with Open-Meteo and trend feeds for external context.
 
-SQL is appropriate because the domain is relational by nature:
-- users own many items and outfits,
-- outfits join many items,
-- feedback and usage logs reference user and target entities,
-- climate/trend tables require time-window queries and consistent joins.
+### Technology Choices and Rationale
+**TypeScript** was chosen across frontend and backend to reduce integration mismatch and improve refactor safety. This was a practical choice rather than a stylistic one: using one typed language simplified DTO design, API contracts, and debugging.
 
-Prisma provided migrations and type-safe queries, reducing runtime data-access errors.
+**NestJS** was chosen for the backend because its modular structure fits a system with distinct domains such as authentication, items, outfits, climate, trends, and recommendations. Keeping logic in services rather than controllers improved clarity and made it easier to adjust scoring logic without destabilising routing behaviour.
 
-### 2.4 Frontend
-I used **React + Vite** for responsive interaction flows and fast build iteration.
+**PostgreSQL** with **Prisma** was chosen for persistence. An SQL database is appropriate because the project is relational: users own items, outfits contain items, feedback references users and targets, and time-based records such as climate snapshots and trend entries benefit from structured querying. Prisma added migrations and type-safe data access, which reduced implementation errors.
 
-## 3. Architecture and Key Design Decisions
+**React + Vite** was chosen for the client because the interaction model is stateful and iterative. React made it straightforward to manage recommendation flows and authenticated UI state, while Vite reduced build latency during development.
 
-### 3.1 Layered Design
-The architecture follows three layers:
-- **Presentation**: React interface for recommendation and chat flows.
-- **Application**: NestJS modules encapsulating domain logic.
-- **Persistence**: PostgreSQL schema managed via Prisma migrations.
+## Implementation
 
-### 3.2 Data Model Design
-Core entities include `User`, `Profile`, `Item`, `Outfit`, `OutfitUsage`, `ClimateSnapshot`, `SocialTrend`, and `Feedback`.
+### Core Data and CRUD
+To satisfy the coursework requirement for database-backed CRUD, the `Item` model implements full RESTful CRUD:
+- `POST /api/items` creates an item,
+- `GET /api/items` and `GET /api/items/:id` read user items,
+- `PATCH /api/items/:id` updates an item,
+- `DELETE /api/items/:id` deletes an item.
 
-A key choice was separating profile/state entities from event-stream entities (usage, climate, trend snapshots), enabling cleaner analytics and recency-based recommendation behaviour.
+These operations are backed by PostgreSQL through Prisma and return conventional JSON/status-code responses.
 
-### 3.3 API Semantics
-The API is RESTful with JSON responses and conventional status codes:
-- `201` create,
-- `200` read/update,
-- `204` delete,
-- `400/401/403/404/409` for validation/auth/ownership/missing/conflict errors.
+### Recommendation Pipeline
+The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method.
 
-This improves interoperability and keeps client behaviour predictable.
+### Security Decisions
+Security was addressed at multiple layers.
 
-## 4. CRUD Coverage and Demonstrability
-To satisfy core assessment requirements, `Item` now has complete CRUD backed by PostgreSQL:
-- **Create**: `POST /api/items`
-- **Read**: `GET /api/items`, `GET /api/items/:id`
-- **Update**: `PATCH /api/items/:id`
-- **Delete**: `DELETE /api/items/:id`
+**Authentication.** The API uses JWT-based authentication with guarded routes. This choice provides a simple stateless security model suitable for a coursework API and allows protected ownership checks without server-side session storage.
 
-Ownership checks are enforced for read/update/delete to prevent cross-user data access.
+**Authorisation.** Ownership checks were added to CRUD operations so a user can only read, update, or delete their own items. This prevents horizontal privilege issues and ensures the API does not expose another user's wardrobe data.
 
-The system is demonstrable through local execution with Docker PostgreSQL and npm scripts (`start:dev`, `build`, Prisma migrate/generate/seed).
+**Validation.** DTO validation is enforced in NestJS using class-validator and a global validation pipe. This helps prevent malformed payloads from entering business logic or the database layer.
 
-## 5. Originality, Novel Integration, and Research Curiosity
-The system’s novelty is not a single algorithm but a practical integration strategy:
-- live weather suitability from Open-Meteo,
-- trend relevance from recency-filtered media signals,
-- adaptive user feedback incorporated into ranking,
-- explainable score breakdowns for each recommendation.
+**Secret handling.** Environment files are excluded from version control, and previously tracked `.env` data was removed from Git history. This is important because leaked API keys invalidate any claim of basic operational security.
 
-I explored several alternatives before finalising the design:
-- **pure collaborative filtering**: rejected due cold-start and sparse behaviour in a coursework-sized dataset,
-- **end-to-end LLM ranking**: rejected due non-deterministic behaviour and weak auditability for assessment,
-- **hybrid weighted model (selected)**: chosen for stability, interpretability, and controllable trade-offs.
+**Database safety.** Prisma reduces query-construction mistakes by using typed queries rather than manual string assembly. While this is not a complete substitute for broader security testing, it lowers the risk of common implementation errors.
 
-This reflects a research-curiosity process: evaluate feasible candidates, justify rejections, and retain a design that balances innovation with reliability.
+## Evaluation
 
-## 6. Creative but Controlled Use of Generative AI
-Generative AI was used in a targeted way:
-- rapid exploration of alternative architecture options,
-- selective debugging suggestions,
-- drafting support for documentation structure.
+### Usefulness
+The system is useful because it reduces cognitive load during a time-constrained daily task. Users may know the current weather in general terms but still miss details such as rain probability, wind, or conditions at a later time of day. They may also have only vague awareness of recent fashion trends. Style Forecast aggregates those signals and turns them into a single actionable suggestion, reducing both uncertainty and decision fatigue.
 
-AI suggestions were never accepted blindly; all implementation and final design decisions were manually reviewed and validated against runtime behaviour and coursework requirements.
+### Testing and Validation
+Evaluation was carried out in three ways:
+1. backend and frontend production builds to confirm deployable integrity,
+2. endpoint validation through Swagger and direct HTTP requests,
+3. end-to-end flow checks across authentication, item creation, recommendation, and feedback.
 
-## 7. Testing Approach, Challenges, and Lessons
+### Challenges and Lessons
+The most difficult implementation issue was timezone correctness. Weather relevance depends on when and where the user intends to wear an outfit, so naive datetime handling produces incorrect recommendations. A second challenge was external data reliability: trend and weather inputs are inherently less controllable than internal data, so the system had to fail clearly rather than silently.
 
-### 7.1 Testing Approach
-- **Build validation**: backend/frontend production builds.
-- **Endpoint validation**: Swagger + direct HTTP checks.
-- **Flow validation**: auth → item/outfit creation → recommendation → feedback loops.
+The main lesson from the project was that explainability matters as much as raw feature count. A smaller system with clear logic, secure defaults, and a strong end-to-end flow is more defensible than a larger but less coherent implementation.
 
-### 7.2 Challenges
-- timezone correctness for user-local datetimes,
-- external API variability (weather/trend sources),
-- balancing trend sensitivity without destabilising recommendation utility.
+### Limitations and Future Work
+The current trend sentiment model is lexical and can miss nuance. Personalisation is heuristic rather than learned from large-scale data, and automated test coverage remains narrower than production standards. Future work would therefore focus on stronger automated testing, scheduled trend-ingestion jobs, and a constrained learning-to-rank approach that preserves explainability.
 
-### 7.3 Lessons Learned
-- Modular service boundaries reduced integration risks.
-- Explicit status-code semantics improved debugging speed.
-- Explainable heuristics are valuable in early-stage intelligent systems.
-
-## 8. Limitations and Future Work
-
-### 8.1 Limitations
-- sentiment extraction is lexical and may miss nuance,
-- personalization remains heuristic rather than learned from large-scale interaction data,
-- automated test coverage is narrower than production standards.
-
-### 8.2 Future Improvements
-- expand automated unit/integration/regression tests,
-- introduce scheduled ingestion jobs for trend pipelines,
-- evaluate constrained learning-to-rank while preserving explainability,
-- add observability, rate limiting, and stronger deployment hardening.
-
-## 9. Rubric Alignment (Outstanding Band)
-This submission now explicitly addresses the high-band criteria:
-- **Originality and innovation**: hybrid explainable intelligence across weather, trend, and feedback signals.
-- **Novel data integration**: multi-source temporal data fused in a single ranking pipeline.
-- **Publication-quality documentation**: structured report, reproducible setup, and linked API/presentation deliverables.
-- **Research curiosity**: documented alternatives considered and justified.
-- **Creative GenAI use**: high-level ideation support with strict human validation.
-- **Expert-level analysis**: trade-off discussion, constraints, and evolution path.
-
-## 10. Conclusion
-Style Forecast demonstrates a practical, explainable, and adaptive intelligent API system with full SQL-backed CRUD compliance and clear technical rationale. The architecture is intentionally designed for demonstrability today and extensibility toward more advanced ranking methods in future iterations.
+## Conclusion
+Style Forecast was designed to bridge a genuine everyday knowledge gap: what to wear when time is limited and contextual information is fragmented. The final architecture reflects deliberate choices about maintainability, security, explainability, and practical usefulness. The project demonstrates a coherent API-centric system whose technical decisions are justified by both user need and engineering trade-offs.
 
 ## Generative AI Declaration
-Generative AI tools were used selectively for ideation and drafting support. Final technical decisions, implementation, and report edits are my own and were validated against project behaviour.
+Generative AI tools were used selectively for ideation and drafting assistance. Final design choices, implementation decisions, and report wording were reviewed and finalised by me.

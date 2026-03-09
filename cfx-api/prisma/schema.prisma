@@ -46,6 +46,7 @@ enum TargetType {
 
 model User {
   id           String    @id @default(uuid())
+  username     String    @unique
   email        String    @unique
   passwordHash String
   role         Role      @default(USER)
@@ -59,6 +60,7 @@ model User {
   auditLogs AuditLog[]
   outfits   Outfit[]
   outfitUsages OutfitUsage[]
+  savedRecommendations SavedRecommendation[]
 }
 
 model Profile {
@@ -124,6 +126,7 @@ model Outfit {
   createdAt   DateTime       @default(now())
   items       OutfitOnItems[]
   usages      OutfitUsage[]
+  savedRecommendations SavedRecommendation[]
 }
 
 model OutfitOnItems {
@@ -180,6 +183,22 @@ model OutfitUsage {
   climateSnapshotId String?
 
   createdAt DateTime @default(now())
+}
+
+model SavedRecommendation {
+  id                String   @id @default(uuid())
+  user              User     @relation(fields: [userId], references: [id])
+  userId            String
+  outfit            Outfit?  @relation(fields: [outfitId], references: [id])
+  outfitId          String?
+  outfitName        String
+  location          String
+  recommendedFor    DateTime
+  weatherSummary    Json
+  outfitSnapshot    Json
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, outfitId, location, recommendedFor])
 }
 
 model Match {
