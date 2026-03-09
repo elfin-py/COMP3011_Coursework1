@@ -71,12 +71,8 @@ model Profile {
   sizes     Json
   cityLat   Float
   cityLon   Float
-  homeLocation       String   @default("Leeds")
-  timezone           String   @default("Europe/London")
-  dailyDigestEnabled Boolean  @default(false)
-  dailyDigestHour    Int      @default(7)
-  emailDigestEnabled Boolean  @default(false)
-  lastDigestSentAt   DateTime?
+  homeLocation String   @default("Leeds")
+  timezone     String   @default("Europe/London")
 }
 
 model Item {

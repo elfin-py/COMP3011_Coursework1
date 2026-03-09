@@ -1,14 +1,10 @@
-import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
-export declare class UsersService implements OnModuleInit, OnModuleDestroy {
+export declare class UsersService {
     private readonly prisma;
-    private readonly logger;
-    private digestTask?;
     constructor(prisma: PrismaService);
-    onModuleInit(): void;
-    onModuleDestroy(): void;
     create(dto: CreateUserDto): Promise<{
         profile: {
             id: string;
@@ -21,7 +17,9 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
             timezone: string;
             dailyDigestEnabled: boolean;
             dailyDigestHour: number;
+            dailyDigestMinute: number;
             emailDigestEnabled: boolean;
+            digestEmail: string | null;
             lastDigestSentAt: Date | null;
         } | null;
     } & {
@@ -51,15 +49,6 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
         updatedAt: Date;
         username: string;
     } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
-    findByIdentifier(identifier: string): import("@prisma/client").Prisma.Prisma__UserClient<{
-        id: string;
-        email: string;
-        passwordHash: string;
-        role: import("@prisma/client").$Enums.Role;
-        createdAt: Date;
-        updatedAt: Date;
-        username: string;
-    } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findById(id: string): import("@prisma/client").Prisma.Prisma__UserClient<{
         id: string;
         email: string;
@@ -69,21 +58,15 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
         updatedAt: Date;
         username: string;
     } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    changePassword(userId: string, dto: ChangePasswordDto): Promise<{
+        message: string;
+    }>;
     getSettings(userId: string): Promise<{
         homeLocation: string;
         timezone: string;
-        dailyDigestEnabled: boolean;
-        dailyDigestHour: number;
-        emailDigestEnabled: boolean;
-        lastDigestSentAt: Date | null;
     }>;
     updateSettings(userId: string, dto: UpdateSettingsDto): Promise<{
         homeLocation: string;
         timezone: string;
-        dailyDigestEnabled: boolean;
-        dailyDigestHour: number;
-        emailDigestEnabled: boolean;
-        lastDigestSentAt: Date | null;
     }>;
-    private runDigestSweep;
 }

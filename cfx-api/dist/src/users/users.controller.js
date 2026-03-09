@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
+const change_password_dto_1 = require("./dto/change-password.dto");
 const update_settings_dto_1 = require("./dto/update-settings.dto");
 const users_service_1 = require("./users.service");
 let UsersController = class UsersController {
@@ -29,6 +30,9 @@ let UsersController = class UsersController {
     }
     updateSettings(user, dto) {
         return this.usersService.updateSettings(user.userId, dto);
+    }
+    changePassword(user, dto) {
+        return this.usersService.changePassword(user.userId, dto);
     }
 };
 exports.UsersController = UsersController;
@@ -47,6 +51,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, update_settings_dto_1.UpdateSettingsDto]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "updateSettings", null);
+__decorate([
+    (0, common_1.Post)('me/change-password'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, change_password_dto_1.ChangePasswordDto]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "changePassword", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('users'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

@@ -15,6 +15,7 @@ declare class SavedOutfitSnapshotDto {
     name: string;
     occasion?: string;
     styleTags?: string[];
+    imageUrls?: string[];
     items?: SavedItemDto[];
 }
 export declare class ToggleSavedRecommendationDto {

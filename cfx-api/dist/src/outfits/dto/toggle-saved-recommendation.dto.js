@@ -69,6 +69,7 @@ class SavedOutfitSnapshotDto {
     name;
     occasion;
     styleTags;
+    imageUrls;
     items;
 }
 __decorate([
@@ -91,6 +92,12 @@ __decorate([
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
 ], SavedOutfitSnapshotDto.prototype, "styleTags", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], SavedOutfitSnapshotDto.prototype, "imageUrls", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

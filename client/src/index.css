@@ -155,6 +155,46 @@ body {
   border-top: 1px solid var(--line);
 }
 
+.password-settings {
+  margin-top: 1rem;
+}
+
+.account-field-stack {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.account-field-stack .input {
+  width: 100%;
+  min-width: 0;
+}
+
+.account-meta {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  padding: 0.7rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.account-meta .hint {
+  margin: 0;
+}
+
+.account-actions,
+.password-actions {
+  margin-top: 0.9rem;
+  gap: 0.75rem;
+}
+
+.account-actions .btn,
+.password-actions .btn {
+  min-width: 148px;
+}
+
 .chat-box {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -821,21 +861,34 @@ select.input {
   gap: 0.45rem;
 }
 
-.saved-items {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.saved-item {
-  display: grid;
-  gap: 0.15rem;
-  border-top: 1px solid var(--line);
-  padding-top: 0.55rem;
-}
-
-.saved-item span {
+.saved-section-label {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--muted);
-  font-size: 0.86rem;
+}
+
+.saved-inspo-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.saved-inspo-tile {
+  width: 108px;
+  height: 148px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  display: block;
+  background: var(--tile-bg);
+  box-shadow: var(--shadow);
+}
+
+.saved-inspo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .hourglass {

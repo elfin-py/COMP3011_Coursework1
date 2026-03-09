@@ -12,7 +12,7 @@ export declare class AuthService {
             refreshToken: string;
         };
     }>;
-    validateUser(identifier: string, password: string): Promise<{
+    validateUser(username: string, password: string): Promise<{
         id: string;
         email: string;
         passwordHash: string;
@@ -21,7 +21,7 @@ export declare class AuthService {
         updatedAt: Date;
         username: string;
     } | null>;
-    login(identifier: string, password: string): Promise<{
+    login(username: string, password: string): Promise<{
         user: Omit<{
             id: string;
             email: string;

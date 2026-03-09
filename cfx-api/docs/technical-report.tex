@@ -24,7 +24,7 @@
 \section{Overview}
 Style Forecast is an API-first outfit recommendation system designed for a practical everyday problem: people often have limited time when getting ready, incomplete awareness of weather conditions at a chosen time, and only partial knowledge of current style trends. The system aims to bridge that knowledge gap by combining weather, trend, and user-preference signals into a recommendation that helps the user feel both comfortable and confident.
 
-The central design objective was not simply to return an outfit, but to return one that is appropriate for climate, relevant to current fashion context, and explainable enough to earn user trust. This led to three guiding priorities: explainability, adaptive usefulness, and robust local demonstrability.
+The central design objective was not simply to return an outfit, but to return one that is appropriate for climate, relevant to current fashion context, and explainable enough to earn user trust.
 
 \section{Methodology}
 \subsection{Problem Framing and Design Approach}
@@ -35,7 +35,7 @@ The project was approached as a decision-support system rather than a generic fa
   \item \textbf{user feedback adaptation}, to avoid static, one-size-fits-all behaviour.
 \end{itemize}
 
-I considered alternative approaches before selecting the final model. Pure collaborative filtering was not suitable because the dataset is small and suffers from cold-start problems. An end-to-end LLM ranking approach was also considered, but rejected because it would be harder to audit, less deterministic, and less reliable for a live assessment setting. I therefore chose a hybrid weighted model that exposes its reasoning while still incorporating multiple data sources.
+I considered alternative approaches before selecting the final model. Pure collaborative filtering was not suitable because the dataset is small and suffers from cold-start problems. An end-to-end LLM ranking approach was also rejected because it would be harder to audit and less reliable for a live assessment setting. I therefore chose a hybrid weighted model that exposes its reasoning while still incorporating multiple data sources.
 
 \subsection{Architecture Overview}
 The system is structured in three layers, shown in Figure~\ref{fig:architecture}. This separation keeps the application maintainable and makes design choices easier to justify.
@@ -43,10 +43,10 @@ The system is structured in three layers, shown in Figure~\ref{fig:architecture}
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  node distance=7mm and 7mm,
-  every node/.style={font=\small},
-  box/.style={draw, rounded corners, align=center, text width=0.34\linewidth, minimum height=0.95cm, inner sep=4pt},
-  smallbox/.style={draw, rounded corners, align=center, text width=0.27\linewidth, minimum height=0.95cm, inner sep=4pt},
+  node distance=5mm and 6mm,
+  every node/.style={font=\footnotesize},
+  box/.style={draw, rounded corners, align=center, text width=0.31\linewidth, minimum height=0.82cm, inner sep=3pt},
+  smallbox/.style={draw, rounded corners, align=center, text width=0.24\linewidth, minimum height=0.82cm, inner sep=3pt},
   arr/.style={-{Latex[length=2mm]}, thick}
 ]
 \node[box] (client) {React + Vite Client\\user input, authentication state, and visual feedback};
@@ -61,7 +61,7 @@ The system is structured in three layers, shown in Figure~\ref{fig:architecture}
 \label{fig:architecture}
 \end{figure}
 
-The client is intentionally thin: it collects user input, presents results, and manages authenticated state. The API is the coordination layer for validation, scoring, ownership rules, and external data access. Keeping decision-making logic in the backend avoids duplicating business rules across clients and keeps behaviour consistent. The persistence layer stores stable application state, while external sources are treated as contextual enrichments rather than authoritative internal truth.
+The client is intentionally thin: it collects user input, presents results, and manages authenticated state. The API is the coordination layer for validation, scoring, ownership rules, and external data access.
 
 \subsection{Technology Choices and Rationale}
 \textbf{TypeScript} was chosen across frontend and backend to reduce integration mismatch and improve refactor safety \cite{typescript}. This was a practical choice rather than a stylistic one: using one typed language simplified DTO design, API contracts, and debugging.
@@ -72,9 +72,9 @@ The client is intentionally thin: it collects user input, presents results, and 
 
 \textbf{React + Vite} was chosen for the client because the interaction model is stateful and iterative \cite{react,vite}. React supports interactive recommendation flows and authenticated UI state, while Vite keeps iteration fast.
 
-\textbf{REST over GraphQL} was also a deliberate choice. GraphQL would have been defensible for highly variable client-side queries, but this project has a relatively stable set of resources and workflows. A RESTful API made route semantics, status codes, authentication guards, and Swagger-based documentation more direct, which was more appropriate for a coursework system focused on clarity and demonstrability.
+\textbf{REST over GraphQL} was also a deliberate choice. GraphQL would have been defensible for highly variable client-side queries, but this project has a relatively stable set of resources and workflows. REST made route semantics, status codes, authentication guards, and Swagger-based documentation more direct.
 
-Another important design choice was to keep modules narrow in scope. For example, climate retrieval is separated from recommendation ranking, and authentication is separated from user settings and item management. This makes modules easier to test and limits the blast radius of future changes.
+Another important design choice was to keep modules narrow in scope. For example, climate retrieval is separated from recommendation ranking, and authentication is separated from user settings and item management.
 
 \section{Implementation}
 \subsection{Core Data and CRUD}
@@ -87,26 +87,26 @@ To satisfy the coursework requirement for database-backed CRUD, the \texttt{Item
 \end{itemize}
 These operations are backed by PostgreSQL through Prisma and return conventional JSON/status-code responses.
 
-The \texttt{Item} model was the most appropriate candidate for full CRUD because it represents a stable user-owned resource with clear lifecycle operations. Users need to create, inspect, refine, and remove wardrobe items, so the CRUD semantics are both technically valid and easy to justify from a user-experience perspective.
+The \texttt{Item} model was the most appropriate candidate for full CRUD because it represents a stable user-owned resource with clear lifecycle operations.
 
 \subsection{Recommendation Pipeline}
-The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method.
+The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method, and it fits a client flow where users can search from a curated city list, enter coordinates directly, or reuse a saved home location.
 
-This design is especially useful in the target use case. A user getting ready quickly may know that the day is ``cold'' or ``rainy'', but not whether the weather will change by the time they leave, whether wind will affect comfort, or whether a chosen outfit will feel dated relative to current trends. By consolidating these signals into one recommendation, the system reduces fragmented decision-making and supports both comfort and self-presentation.
+This design is especially useful in the target use case. A user getting ready quickly may know that the day is ``cold'' or ``rainy'', but not whether the weather will change by the time they leave. By consolidating these signals into one recommendation, the system reduces fragmented decision-making and supports comfort and self-presentation.
 
-The recommendation flow is therefore not only a ranking problem but also an information-fusion problem. Weather APIs supply environmental context, trend processing adds cultural context, and user history contributes personal context. The system's usefulness comes from resolving these three contexts at once, rather than forcing the user to mentally combine them under time pressure. Open-Meteo was particularly useful because it offers forecast and geocoding support through a simple interface suited to lightweight integration \cite{openmeteo}.
+The recommendation flow is therefore also an information-fusion problem. Weather APIs supply environmental context, trend processing adds cultural context, and user history contributes personal context. Open-Meteo was particularly useful because it offers forecast and geocoding support through a lightweight interface \cite{openmeteo}.
 
 \subsection{Data Flow Through the System}
-The operational flow begins when the user authenticates and sends wardrobe data or a recommendation request. The client sends structured JSON payloads to the API, where validation and access checks run before business logic. The recommendation service then gathers internal state from PostgreSQL and combines it with external weather and trend context. After scoring candidate outfits, the API returns a JSON response containing the selected result, and logged-in users can store that recommendation with its weather, place, and time for later review.
+The operational flow begins when the user authenticates and sends wardrobe data or a recommendation request. The client sends structured JSON payloads to the API, where validation and access checks run before business logic. A saved account location can prefill the recommendation form, while blank settings intentionally do not force an autofill. The recommendation service then combines internal state from PostgreSQL with external weather and trend context. After scoring candidate outfits, the API returns a JSON response containing the selected result, and logged-in users can store that recommendation with its weather, place, and time for later review.
 
 \subsection{Security Decisions}
 Security was addressed at multiple layers.
 
-\textbf{Authentication.} The API uses JWT-based authentication with guarded routes. This choice provides a simple stateless security model suitable for a coursework API and allows protected ownership checks without server-side session storage.
+\textbf{Authentication.} The API uses JWT-based authentication with guarded routes. This provides a simple stateless security model for a coursework API and allows protected ownership checks without server-side session storage. The account area also supports authenticated password change with current-password verification before a new bcrypt hash is stored.
 
 \textbf{Authorisation.} Ownership checks were added to CRUD operations and saved recommendations so a user can only read, update, or delete their own records. This prevents horizontal privilege issues and ensures the API does not expose another user's wardrobe data.
 
-\textbf{Validation.} DTO validation is enforced in NestJS using class-validator and a global validation pipe. This helps prevent malformed payloads from entering business logic or the database layer.
+\textbf{Validation.} DTO validation is enforced in NestJS using class-validator and a global validation pipe. This helps prevent malformed payloads from entering business logic or the database layer, including password-policy enforcement and structured validation of saved account location input.
 
 \textbf{Secret handling.} Environment files are excluded from version control, and previously tracked \texttt{.env} data was removed from Git history. This is important because leaked API keys invalidate any claim of basic operational security.
 
@@ -128,53 +128,44 @@ Evaluation was carried out in three ways:
   \item end-to-end flow checks across authentication, item creation, recommendation, saving, and feedback.
 \end{enumerate}
 
-This evaluation strategy reflects how the system is actually consumed. A successful build confirms structural integrity, but the more important question is whether a realistic user flow behaves correctly from login through to recommendation output. For that reason, validation focused on connected flows rather than isolated endpoint success alone.
+This evaluation strategy reflects how the system is actually consumed. A successful build confirms structural integrity, but the more important question is whether a realistic user flow behaves correctly from login through to recommendation output.
 
-The evaluation is qualitative rather than benchmark-driven. The main question here is not whether the recommender beats a baseline on a large labelled dataset, but whether it gives plausible, explainable, and secure recommendations under realistic usage conditions.
+The evaluation is qualitative rather than benchmark-driven. The main question is whether the recommender gives plausible, explainable, and secure recommendations under realistic usage conditions.
 
 \subsection{Challenges and Lessons}
-The most difficult implementation issue was timezone correctness. Weather relevance depends on when and where the user intends to wear an outfit, so naive datetime handling produces incorrect recommendations. A second challenge was external data reliability: trend and weather inputs are inherently less controllable than internal data, so the system had to fail clearly rather than silently.
+The most difficult implementation issue was timezone correctness. Weather relevance depends on when and where the user intends to wear an outfit, so naive datetime handling produces incorrect recommendations. This also affected account settings, because the interface needed to display an obvious user-facing timezone label while still storing a robust underlying zone identifier. A second challenge was external data reliability, so the system had to fail clearly rather than silently.
 
 The main lesson from the project was that explainability matters as much as raw feature count. A smaller system with clear logic, secure defaults, and a strong end-to-end flow is more defensible than a larger but less coherent implementation.
 
 Another lesson was architectural discipline. Separating concerns between controller, service, and persistence layers added some overhead early on, but it paid off when the CRUD requirement, JWT refresh flow, and documentation changes had to be introduced without destabilising unrelated behaviour.
 
-A further lesson was that external intelligence should be bounded. Trend and weather integrations can improve usefulness, but they should not dominate core recommendation logic to the point where outputs become unstable or difficult to justify.
+A further lesson was that external intelligence should be bounded. Trend and weather integrations can improve usefulness, but they should not dominate core recommendation logic.
 
 \subsection{Limitations and Future Work}
-The current trend sentiment model is lexical and can miss nuance. Personalisation is heuristic rather than learned from large-scale data, and automated test coverage remains narrower than production standards. Future work would therefore focus on stronger automated testing, scheduled trend-ingestion jobs, and a constrained learning-to-rank approach that preserves explainability.
+The current trend sentiment model is lexical and can miss nuance. Personalisation is heuristic rather than learned from large-scale data, and automated test coverage remains narrower than production standards. A scheduled email-digest channel was explored, but reliable SMTP or OAuth-backed delivery introduced provider and deployment dependencies that were disproportionate to the coursework scope. Future work would therefore focus on stronger automated testing, scheduled trend-ingestion jobs, and a constrained learning-to-rank approach that preserves explainability.
 
 \section{Conclusion}
-Style Forecast was designed to bridge a genuine everyday knowledge gap: what to wear when time is limited and contextual information is fragmented. The final architecture reflects deliberate choices about maintainability, security, explainability, and practical usefulness. The project demonstrates a coherent API-centric system whose technical decisions are justified by both user need and engineering trade-offs.
+Style Forecast was designed to bridge a genuine everyday knowledge gap: what to wear when time is limited and contextual information is fragmented. The final architecture reflects deliberate choices about maintainability, security, explainability, and practical usefulness.
 
 \paragraph*{Generative AI Declaration}
-Generative AI tools were used selectively for ideation and drafting assistance. Final design choices, implementation decisions, and report wording were reviewed and finalised by me.
+Generative AI tools were used selectively for ideation and drafting assistance. Final design choices and report wording were reviewed and finalised by me.
 
 \begingroup
-\footnotesize
-\setlength{\itemsep}{0pt}
+\fontsize{8}{8.6}\selectfont
+\setlength{\itemsep}{-2pt}
 \setlength{\parskip}{0pt}
+\setlength{\topsep}{0pt}
+\setlength{\partopsep}{0pt}
+\setlength{\parsep}{0pt}
+\raggedright
 \begin{thebibliography}{9}
-\bibitem{typescript}
-Microsoft. \emph{TypeScript Docs}. \url{https://www.typescriptlang.org/}.
-
-\bibitem{nestjs}
-NestJS. \emph{NestJS Docs}. \url{https://docs.nestjs.com/}.
-
-\bibitem{prisma}
-Prisma. \emph{Prisma ORM Docs}. \url{https://www.prisma.io/docs}.
-
-\bibitem{postgresql}
-PostgreSQL Global Development Group. \emph{PostgreSQL Docs}. \url{https://www.postgresql.org/docs/}.
-
-\bibitem{react}
-Meta. \emph{React Docs}. \url{https://react.dev/}.
-
-\bibitem{vite}
-Vite. \emph{Vite Guide}. \url{https://vite.dev/guide/}.
-
-\bibitem{openmeteo}
-Open-Meteo. \emph{Weather Forecast API Docs}. \url{https://open-meteo.com/en/docs}.
+\bibitem{typescript} Microsoft. \emph{TypeScript Docs}. \url{https://www.typescriptlang.org/}.
+\bibitem{nestjs} NestJS. \emph{NestJS Docs}. \url{https://docs.nestjs.com/}.
+\bibitem{prisma} Prisma. \emph{Prisma ORM Docs}. \url{https://www.prisma.io/docs}.
+\bibitem{postgresql} PostgreSQL Global Development Group. \emph{PostgreSQL Docs}. \url{https://www.postgresql.org/docs/}.
+\bibitem{react} Meta. \emph{React Docs}. \url{https://react.dev/}.
+\bibitem{vite} Vite. \emph{Vite Guide}. \url{https://vite.dev/guide/}.
+\bibitem{openmeteo} Open-Meteo. \emph{Weather Forecast API Docs}. \url{https://open-meteo.com/en/docs}.
 \end{thebibliography}
 \endgroup
 
