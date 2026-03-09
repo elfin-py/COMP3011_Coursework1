@@ -17,10 +17,6 @@ type OutfitScore = {
 type UserSettings = {
   homeLocation: string;
   timezone: string;
-  dailyDigestEnabled: boolean;
-  dailyDigestHour: number;
-  emailDigestEnabled: boolean;
-  lastDigestSentAt?: string | null;
 };
 
 type ChatResult = {
@@ -60,6 +56,7 @@ type SavedRecommendation = {
     name: string;
     occasion?: string;
     styleTags?: string[];
+    imageUrls?: string[];
     items?: {
       id: string;
       material?: string;
@@ -71,6 +68,52 @@ type SavedRecommendation = {
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000/api';
+
+const UK_CITIES = [
+  'Leeds',
+  'London',
+  'Manchester',
+  'Birmingham',
+  'Liverpool',
+  'Bristol',
+  'Glasgow',
+  'Edinburgh',
+  'Newcastle',
+  'Sheffield',
+  'Nottingham',
+  'Leicester',
+  'Cardiff',
+  'Belfast',
+  'Southampton',
+];
+
+const EUROPE_CITIES = [
+  'Paris',
+  'Berlin',
+  'Amsterdam',
+  'Brussels',
+  'Madrid',
+  'Barcelona',
+  'Lisbon',
+  'Dublin',
+  'Copenhagen',
+  'Stockholm',
+  'Oslo',
+  'Helsinki',
+  'Vienna',
+  'Prague',
+  'Warsaw',
+  'Budapest',
+  'Rome',
+  'Milan',
+  'Munich',
+  'Zurich',
+  'Geneva',
+];
+
+const OTHER_MAJOR_CITIES = ['New York', 'Toronto', 'Tokyo', 'Sydney'];
+
+const LOCATION_OPTIONS = [...UK_CITIES, ...EUROPE_CITIES, ...OTHER_MAJOR_CITIES];
 
 async function api<T>(
   path: string,
@@ -94,10 +137,8 @@ async function api<T>(
 
 function App() {
   const CHAT_HISTORY_KEY = 'sf_chat_history';
-  const [email, setEmail] = useState('you@example.com');
-  const [username, setUsername] = useState('styleuser');
-  const [identifier, setIdentifier] = useState('styleuser');
-  const [password, setPassword] = useState('Password123!');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [token, setToken] = useState<string | null>(null);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [showAuth, setShowAuth] = useState(false);
@@ -117,19 +158,23 @@ function App() {
   const [loadingRec, setLoadingRec] = useState(false);
   const [savingOutfit, setSavingOutfit] = useState(false);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
+  const [savedInspo, setSavedInspo] = useState<Record<string, string[]>>({});
   const [savedViewLoading, setSavedViewLoading] = useState(false);
-  const [activeView, setActiveView] = useState<'recommend' | 'saved'>('recommend');
+  const [activeView, setActiveView] = useState<'home' | 'saved'>('home');
   const [chatOpen, setChatOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loadingChat, setLoadingChat] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({
-    homeLocation: 'Leeds',
-    timezone: 'Europe/London',
-    dailyDigestEnabled: false,
-    dailyDigestHour: 7,
-    emailDigestEnabled: false,
-    lastDigestSentAt: null,
+    homeLocation: '',
+    timezone: '',
+  });
+  const [resolvingAccountLocation, setResolvingAccountLocation] = useState(false);
+  const [resolvingAccountTimezone, setResolvingAccountTimezone] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
   const getCookie = (name: string) => {
     if (typeof document === 'undefined') return null;
@@ -177,9 +222,62 @@ function App() {
   }, [token]);
 
   useEffect(() => {
+    if (!authed || !token) return;
+    if (settings.homeLocation && !location) {
+      setLocation(settings.homeLocation);
+    }
+    if (datetime || !settings.homeLocation) return;
+
+    api<{ timezone: string; localNow: string }>(
+      `/climate/local-now?location=${encodeURIComponent(settings.homeLocation)}`,
+      { method: 'POST' },
+      token,
+    )
+      .then((res) => setDatetime(res.localNow))
+      .catch(() => {
+        // Keep empty datetime if autofill fails.
+      });
+  }, [authed, token, settings.homeLocation, location, datetime]);
+
+  useEffect(() => {
+    if (!authed) return;
+    const homeLocation = settings.homeLocation.trim();
+    if (!homeLocation) {
+      setSettings((s) => (s.timezone ? { ...s, timezone: '' } : s));
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setResolvingAccountTimezone(true);
+      api<{ timezone: string; localNow: string }>(
+        `/climate/local-now?location=${encodeURIComponent(homeLocation)}`,
+        { method: 'POST' },
+        token || undefined,
+      )
+        .then((res) => {
+          setSettings((s) =>
+            s.homeLocation.trim() === homeLocation && s.timezone !== res.timezone
+              ? { ...s, timezone: res.timezone }
+              : s,
+          );
+        })
+        .catch(() => {
+          setSettings((s) =>
+            s.homeLocation.trim() === homeLocation && s.timezone
+              ? { ...s, timezone: '' }
+              : s,
+          );
+        })
+        .finally(() => setResolvingAccountTimezone(false));
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [authed, token, settings.homeLocation]);
+
+  useEffect(() => {
     if (!token) {
       setSavedRecommendations([]);
-      setActiveView('recommend');
+      setActiveView('home');
       return;
     }
     setSavedViewLoading(true);
@@ -241,6 +339,16 @@ function App() {
     setSavedRecommendations(res);
   }, [token]);
 
+  const savedRecommendationTags = useCallback((saved: SavedRecommendation) => {
+    const tags = [
+      ...(saved.outfitSnapshot.styleTags ?? []),
+      ...(saved.outfitSnapshot.items ?? []).flatMap((item) => item.styleTags ?? []),
+    ]
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
+    return Array.from(new Set(tags)).slice(0, 6);
+  }, []);
+
   const useGeo = () => {
     if (!navigator.geolocation) {
       setStatus('Error: geolocation not available');
@@ -253,6 +361,42 @@ function App() {
         setStatus(`Done: location set to ${coords}`);
       },
       (err) => setStatus(`Error: ${err.message}`),
+      { enableHighAccuracy: false, timeout: 5000 },
+    );
+  };
+
+  const useAccountGeo = () => {
+    if (!navigator.geolocation) {
+      setStatus('Error: geolocation not available');
+      return;
+    }
+    setResolvingAccountLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const coords = `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`;
+        try {
+          const nowRes = await api<{ timezone: string; localNow: string }>(
+            `/climate/local-now?location=${encodeURIComponent(coords)}`,
+            { method: 'POST' },
+            token || undefined,
+          );
+          setSettings((s) => ({
+            ...s,
+            homeLocation: coords,
+            timezone: nowRes.timezone,
+          }));
+          setStatus('Done: account location updated from your coordinates');
+        } catch {
+          setSettings((s) => ({ ...s, homeLocation: coords }));
+          setStatus('Done: account location updated');
+        } finally {
+          setResolvingAccountLocation(false);
+        }
+      },
+      (err) => {
+        setResolvingAccountLocation(false);
+        setStatus(`Error: ${err.message}`);
+      },
       { enableHighAccuracy: false, timeout: 5000 },
     );
   };
@@ -270,6 +414,22 @@ function App() {
     if (!tags || tags.length === 0) return 'clean, versatile basics';
     const readable = tags.slice(0, 3).join(', ');
     return `Trending tags: ${readable}`;
+  };
+
+  const passwordPolicyOk = (value: string) => /^(?=.*[A-Z])(?=.*\d).{7,}$/.test(value);
+
+  const formatTimezoneLabel = (timezone?: string) => {
+    if (!timezone) return 'Derived from saved location';
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        timeZoneName: 'shortOffset',
+      }).formatToParts(new Date());
+      const offset = parts.find((part) => part.type === 'timeZoneName')?.value ?? timezone;
+      return offset.replace('UTC', 'GMT');
+    } catch {
+      return timezone;
+    }
   };
 
 
@@ -394,6 +554,48 @@ function App() {
     return deduped.slice(0, 4);
   };
 
+  const fetchSavedInspiration = useCallback(async (saved: SavedRecommendation) => {
+    const tags = savedRecommendationTags(saved);
+    const { season, year } = seasonForDate(saved.recommendedFor);
+    const queryBase = tags.length ? tags.slice(0, 2).join(' ') : saved.location;
+    try {
+      const res = await api<{ images: { url: string }[] }>(
+        `/trends/pinterest?q=${encodeURIComponent(`${queryBase} outfit inspiration ${season} ${year}`)}`,
+      );
+      const pooled = (res.images || []).map((i) => i.url).filter((u) => {
+        const lower = (u || '').toLowerCase();
+        if (!lower.includes('pinimg.com')) return false;
+        if (!(lower.includes('/736x/') || lower.includes('/original'))) return false;
+        if (/(bag|handbag|purse|jewellery|ring|bracelet)/i.test(lower)) return false;
+        return /\.(jpe?g|png|webp)$/i.test(lower);
+      });
+      return shuffle(pooled).slice(0, 2);
+    } catch {
+      return [] as string[];
+    }
+  }, [savedRecommendationTags]);
+
+  useEffect(() => {
+    if (activeView !== 'saved' || savedRecommendations.length === 0) return;
+    const missing = savedRecommendations.filter((saved) => savedInspo[saved.id] === undefined);
+    if (missing.length === 0) return;
+
+    Promise.all(
+      missing.map(async (saved) => ({
+        id: saved.id,
+        images: await fetchSavedInspiration(saved),
+      })),
+    ).then((results) => {
+      setSavedInspo((prev) => {
+        const next = { ...prev };
+        for (const result of results) {
+          next[result.id] = result.images;
+        }
+        return next;
+      });
+    });
+  }, [activeView, savedRecommendations, savedInspo, fetchSavedInspiration]);
+
   // track elapsed load time
   useEffect(() => {
     if (!imgLoadStart) return;
@@ -499,6 +701,7 @@ function App() {
             : recommendation.outfit?.items
                 ?.flatMap((entry: any) => entry.item?.styleTags ?? [])
                 .slice(0, 8) ?? [],
+        imageUrls: recImages.slice(0, 2),
         items: (recommendation.outfit?.items ?? []).map((entry: any) => ({
           id: entry.item?.id ?? entry.itemId,
           material: entry.item?.material,
@@ -513,22 +716,16 @@ function App() {
     <>
     <div className="page">
       <nav className="nav">
-        <div className="brand">
+        <button className="brand" onClick={() => setActiveView('home')} type="button">
           <img src="/style-forecast-logo.svg" alt="Style Forecast" className="brand-logo" />
-        </div>
+        </button>
         <div className="auth">
-          <button
-            className={`btn ghost nav-tab ${activeView === 'recommend' ? 'active' : ''}`}
-            onClick={() => setActiveView('recommend')}
-          >
-            Recommend
-          </button>
           {authed && (
             <button
               className={`btn ghost nav-tab ${activeView === 'saved' ? 'active' : ''}`}
               onClick={() => setActiveView('saved')}
             >
-              Saved
+              Liked
             </button>
           )}
           {!authed && (
@@ -574,151 +771,132 @@ function App() {
       {showAuth && (
         <div className="auth-panel">
           <div className="panel-head">
-            <strong>{authView === 'login' ? 'Login' : 'Create account'}</strong>
+            <strong>{authed ? 'Account' : authView === 'login' ? 'Login' : 'Create account'}</strong>
             <button className="close" onClick={() => setShowAuth(false)}>
               ×
             </button>
           </div>
-          <div className="row">
-            {authView === 'register' && (
-              <input
-                className="input"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  setIdentifier(e.target.value);
-                }}
-                placeholder="username"
-              />
-            )}
-            <input
-              className="input"
-              value={authView === 'login' ? identifier : email}
-              onChange={(e) =>
-                authView === 'login' ? setIdentifier(e.target.value) : setEmail(e.target.value)
-              }
-              placeholder={authView === 'login' ? 'username or email' : 'email'}
-            />
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="password"
-            />
-            <button
-              className="btn"
-              onClick={() =>
-                handle(async () => {
-                  if (authView === 'register') {
-                    await api('/auth/register', {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        username,
-                        email,
-                        password,
-                        cityLat: 53.8,
-                        cityLon: -1.55,
-                      }),
-                    });
+          {!authed && (
+            <>
+              <div className="row account-actions">
+                <input
+                  className="input"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="username"
+                />
+                <input
+                  className="input"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="password"
+                />
+                <button
+                  className="btn"
+                  onClick={() =>
+                    handle(async () => {
+                      if (authView === 'register') {
+                        await api('/auth/register', {
+                          method: 'POST',
+                          body: JSON.stringify({
+                            username,
+                            password,
+                            cityLat: 53.8,
+                            cityLon: -1.55,
+                          }),
+                        });
+                      }
+                      const res = await api<{ tokens: { accessToken: string } }>(
+                        '/auth/login',
+                        {
+                          method: 'POST',
+                          body: JSON.stringify({
+                            username,
+                            password,
+                          }),
+                        },
+                      );
+                      setToken(res.tokens.accessToken);
+                      setShowAuth(false);
+                      setStatus('Done: authenticated');
+                    })
                   }
-                  const res = await api<{ tokens: { accessToken: string } }>(
-                    '/auth/login',
-                    {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        identifier,
-                        password,
-                      }),
-                    },
-                  );
-                  setToken(res.tokens.accessToken);
-                  setShowAuth(false);
-                  setStatus('Done: authenticated');
-                })
-              }
-            >
-              {authView === 'login' ? 'Login' : 'Register & Login'}
-            </button>
-            <button
-              className="btn ghost"
-              onClick={() => {
-                setToken(null);
-                setRecommendation(null);
-                setSavedRecommendations([]);
-                setActiveView('recommend');
-                setStatus('Session cleared');
-              }}
-            >
-              Logout
-            </button>
-          </div>
-          <p className="hint">
-            Use a password with at least 7 characters, 1 capital letter, and 1 number.
-          </p>
-          <p className="hint">{authed ? 'Token set' : 'Not authenticated'}</p>
+                >
+                  {authView === 'login' ? 'Login' : 'Register & Login'}
+                </button>
+              </div>
+              <p className="hint">
+                Use a password with at least 7 characters, 1 capital letter, and 1 number.
+              </p>
+              <p className="hint">Not authenticated</p>
+            </>
+          )}
           {authed && (
             <div className="settings-panel">
               <strong>Account settings</strong>
-              <div className="row" style={{ marginTop: '0.5rem' }}>
+              <div className="account-field-stack">
                 <input
                   className="input"
+                  list="location-options"
                   value={settings.homeLocation}
                   onChange={(e) => setSettings((s) => ({ ...s, homeLocation: e.target.value }))}
-                  placeholder="Home location"
+                  placeholder="Home city or coordinates (e.g. Leeds or 53.8008,-1.5491)"
                 />
-                <input
-                  className="input"
-                  value={settings.timezone}
-                  onChange={(e) => setSettings((s) => ({ ...s, timezone: e.target.value }))}
-                  placeholder="Timezone (e.g. Australia/Sydney)"
-                />
+                {settings.homeLocation.trim() && (
+                  <div className="account-meta">
+                    <span className="hint">Timezone</span>
+                    <strong>
+                      {resolvingAccountTimezone
+                        ? 'Resolving...'
+                        : formatTimezoneLabel(settings.timezone)}
+                    </strong>
+                  </div>
+                )}
               </div>
-              <div className="row">
-                <label className="hint">
-                  <input
-                    type="checkbox"
-                    checked={settings.dailyDigestEnabled}
-                    onChange={(e) => setSettings((s) => ({ ...s, dailyDigestEnabled: e.target.checked }))}
-                  />
-                  &nbsp;Enable daily morning recommendation
-                </label>
-                <label className="hint">
-                  Hour:&nbsp;
-                  <input
-                    className="input"
-                    style={{ width: '84px' }}
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={settings.dailyDigestHour}
-                    onChange={(e) =>
-                      setSettings((s) => ({
-                        ...s,
-                        dailyDigestHour: Number(e.target.value || 0),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="hint">
-                  <input
-                    type="checkbox"
-                    checked={settings.emailDigestEnabled}
-                    onChange={(e) => setSettings((s) => ({ ...s, emailDigestEnabled: e.target.checked }))}
-                  />
-                  &nbsp;Email delivery (when configured)
-                </label>
-              </div>
-              <div className="row">
+              <div className="row account-actions">
+                <button
+                  className="btn outline"
+                  onClick={useAccountGeo}
+                  disabled={resolvingAccountLocation}
+                >
+                  {resolvingAccountLocation ? 'Finding location...' : 'Use current location'}
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setToken(null);
+                    setRecommendation(null);
+                    setSavedRecommendations([]);
+                    setActiveView('home');
+                    setShowAuth(false);
+                    setStatus('Session cleared');
+                  }}
+                >
+                  Logout
+                </button>
                 <button
                   className="btn outline"
                   onClick={() =>
                     handle(async () => {
+                      const homeLocation = settings.homeLocation.trim();
+                      let timezone = '';
+                      if (homeLocation) {
+                        const nowRes = await api<{ timezone: string; localNow: string }>(
+                          `/climate/local-now?location=${encodeURIComponent(homeLocation)}`,
+                          { method: 'POST' },
+                          token || undefined,
+                        );
+                        timezone = nowRes.timezone;
+                      }
                       const res = await api<UserSettings>(
                         '/users/me/settings',
                         {
                           method: 'PATCH',
-                          body: JSON.stringify(settings),
+                          body: JSON.stringify({
+                            homeLocation,
+                            timezone,
+                          }),
                         },
                         token || undefined,
                       );
@@ -729,9 +907,87 @@ function App() {
                 >
                   Save settings
                 </button>
-                {settings.lastDigestSentAt && (
-                  <span className="hint">Last digest: {new Date(settings.lastDigestSentAt).toLocaleString('en-GB')}</span>
-                )}
+              </div>
+              <div className="settings-panel password-settings">
+                <strong>Change password</strong>
+                <div className="row" style={{ marginTop: '0.5rem' }}>
+                  <input
+                    className="input"
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) =>
+                      setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
+                    }
+                    placeholder="Current password"
+                  />
+                </div>
+                <div className="row password-actions">
+                  <input
+                    className="input"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) =>
+                      setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
+                    }
+                    placeholder="New password"
+                  />
+                  <input
+                    className="input"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
+                    }
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <p className="hint">
+                  Password must be at least 7 characters and include 1 capital letter and 1 number.
+                </p>
+                <div className="row">
+                  <button
+                    className="btn outline"
+                    onClick={() =>
+                      handle(async () => {
+                        if (
+                          !passwordForm.currentPassword ||
+                          !passwordForm.newPassword ||
+                          !passwordForm.confirmPassword
+                        ) {
+                          setStatus('Error: fill in all password fields');
+                          return;
+                        }
+                        if (!passwordPolicyOk(passwordForm.newPassword)) {
+                          setStatus('Error: new password must be at least 7 characters and include 1 capital letter and 1 number');
+                          return;
+                        }
+                        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                          setStatus('Error: new password confirmation does not match');
+                          return;
+                        }
+                        const res = await api<{ message: string }>(
+                          '/users/me/change-password',
+                          {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              currentPassword: passwordForm.currentPassword,
+                              newPassword: passwordForm.newPassword,
+                            }),
+                          },
+                          token || undefined,
+                        );
+                        setPasswordForm({
+                          currentPassword: '',
+                          newPassword: '',
+                          confirmPassword: '',
+                        });
+                        setStatus(`Done: ${res.message}`);
+                      })
+                    }
+                  >
+                    Change password
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -757,7 +1013,7 @@ function App() {
       )}
 
       <main className="grid single">
-        {activeView === 'recommend' && (
+        {activeView === 'home' && (
         <section className="card recommend-card">
           <div className="card-head">
             <div>
@@ -767,25 +1023,18 @@ function App() {
             </div>
           </div>
           <div className="row row-split">
-            <select
+            <input
               className="input grow"
+              list="location-options"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              style={{ color: location ? 'var(--ink)' : 'var(--muted)' }}
-            >
-              <option value="" disabled>
-                Enter location
-              </option>
-              <option value="Leeds">Leeds</option>
-              <option value="London">London</option>
-              <option value="New York">New York</option>
-              <option value="Tokyo">Tokyo</option>
-              <option value="Paris">Paris</option>
-              <option value="Sydney">Sydney</option>
-              <option value="Toronto">Toronto</option>
-              <option value="Berlin">Berlin</option>
-              {location && <option value={location}>Custom: {location}</option>}
-            </select>
+              placeholder="Search city or enter coordinates"
+            />
+            <datalist id="location-options">
+              {LOCATION_OPTIONS.map((city) => (
+                <option key={city} value={city} />
+              ))}
+            </datalist>
             <button className="btn outline" onClick={useGeo}>Use my location</button>
             <div className="divider" />
             <input
@@ -869,7 +1118,7 @@ function App() {
             >
               Get Recommendation
             </button>
-            {authed && recommendation && (
+            {authed && recommendation && !loadingRec && (
               <button
                 className={`btn outline save-heart ${currentRecommendationSaved ? 'saved' : ''}`}
                 disabled={savingOutfit}
@@ -900,12 +1149,17 @@ function App() {
                     }
                   })
                 }
+                type="button"
+                aria-label={currentRecommendationSaved ? 'Unlike this look' : 'Like this look'}
+                title={currentRecommendationSaved ? 'Unlike this look' : 'Like this look'}
               >
-                {savingOutfit
-                  ? 'Updating…'
-                  : currentRecommendationSaved
-                  ? 'Unheart this look'
-                  : 'Heart this look'}
+                {savingOutfit ? (
+                  '...'
+                ) : currentRecommendationSaved ? (
+                  <i className="fa-solid fa-heart"></i>
+                ) : (
+                  <i className="fa-regular fa-heart"></i>
+                )}
               </button>
             )}
           </div>
@@ -915,6 +1169,11 @@ function App() {
               <p className="hint" style={{ marginBottom: '0.4rem' }}>
                 Need extra help? Use the help chat in the bottom-right for detailed outfit guidance.
               </p>
+              {!authed && (
+                <p className="hint" style={{ marginTop: 0 }}>
+                  Log in to heart this recommendation and store it in your past liked looks.
+                </p>
+              )}
             </div>
           )}
 
@@ -994,12 +1253,21 @@ function App() {
 
         {activeView === 'saved' && authed && (
           <section className="card recommend-card">
+            <div className="row" style={{ marginBottom: '0.75rem' }}>
+              <button
+                className="btn ghost"
+                onClick={() => setActiveView('home')}
+                type="button"
+              >
+                <i className="fa-solid fa-arrow-left"></i>&nbsp;Back
+              </button>
+            </div>
             <div className="card-head">
               <div>
-                <p className="eyebrow">Saved favourites</p>
-                <h2>Saved Outfits</h2>
+                <p className="eyebrow">Past liked recommendations</p>
+                <h2>Liked Outfits</h2>
                 <p className="sub">
-                  Hearted recommendations are stored with the weather, place, and time they were suggested. You can keep up to 20 at once.
+                  Hearted recommendations are stored with the weather, place, and time they were suggested. You can keep up to 20 at once and unheart them here at any time.
                 </p>
               </div>
               <div className="saved-count">
@@ -1011,7 +1279,7 @@ function App() {
 
             {!savedViewLoading && savedRecommendations.length === 0 && (
               <div className="saved-empty">
-                <strong>No saved outfits yet.</strong>
+                <strong>No liked outfits yet.</strong>
                 <p className="sub">
                   Generate a recommendation, heart it, and it will appear here with its weather snapshot.
                 </p>
@@ -1024,13 +1292,13 @@ function App() {
                   <article key={saved.id} className="saved-card">
                     <div className="saved-card-head">
                       <div>
-                        <div className="saved-title">{saved.outfitName}</div>
+                        <div className="saved-title">Saved recommendation</div>
                         <div className="saved-meta">
-                          {saved.location} • {formatLocalHuman(saved.recommendedFor, saved.location)}
+                          Saved for {saved.location} on {formatLocalHuman(saved.recommendedFor, saved.location)}
                         </div>
                       </div>
                       <button
-                        className="btn ghost saved-remove"
+                        className="btn ghost saved-remove save-heart saved"
                         onClick={() =>
                           handle(async () => {
                             setSavingOutfit(true);
@@ -1055,34 +1323,55 @@ function App() {
                             }
                           })
                         }
+                        aria-label="Unlike this look"
+                        title="Unlike this look"
                       >
-                        Unheart
+                        <i className="fa-solid fa-heart"></i>
                       </button>
                     </div>
                     <div className="saved-weather">
-                      {saved.weatherSummary.temperatureC ?? '–'}°C •{' '}
+                      <strong>Weather at the time:</strong> {saved.weatherSummary.temperatureC ?? '–'}°C •{' '}
                       {precipWords(saved.weatherSummary.precipProb, saved.weatherSummary.conditions)} •{' '}
                       {windWords(saved.weatherSummary.windKph)} • {saved.weatherSummary.conditions ?? '—'}
                     </div>
+                    <div className="saved-section-label">Recommended items</div>
                     <div className="saved-tags">
-                      {(saved.outfitSnapshot.styleTags ?? []).slice(0, 4).map((tag) => (
+                      {savedRecommendationTags(saved).map((tag) => (
                         <span key={tag} className="pill pill-soft">
                           {tag}
                         </span>
                       ))}
                     </div>
-                    <div className="saved-items">
-                      {(saved.outfitSnapshot.items ?? []).map((item) => (
-                        <div key={item.id} className="saved-item">
-                          <strong>{item.material || 'Wardrobe item'}</strong>
-                          <span>
-                            {[item.sizeLabel, ...(item.styleTags ?? []).slice(0, 2)]
-                              .filter(Boolean)
-                              .join(' • ') || 'No extra metadata'}
-                          </span>
+                    {!!(saved.outfitSnapshot.imageUrls?.length || savedInspo[saved.id]?.length) && (
+                      <>
+                        <div className="saved-section-label">Inspiration</div>
+                        <div className="saved-inspo-row">
+                          {(saved.outfitSnapshot.imageUrls?.length
+                            ? saved.outfitSnapshot.imageUrls
+                            : savedInspo[saved.id] || []
+                          )
+                            .slice(0, 2)
+                            .map((imgUrl, idx) => (
+                            <a
+                              key={`${saved.id}-${idx}`}
+                              className="saved-inspo-tile"
+                              href={`https://www.pinterest.com/search/pins/?q=${encodeURIComponent(
+                                `${savedRecommendationTags(saved).slice(0, 2).join(' ')} outfit inspiration`,
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Pinterest inspiration"
+                            >
+                              <img
+                                src={`${API_BASE}/trends/pinterest/proxy?url=${encodeURIComponent(imgUrl)}`}
+                                alt="Saved outfit inspiration"
+                                loading="lazy"
+                              />
+                            </a>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </>
+                    )}
                   </article>
                 ))}
               </div>

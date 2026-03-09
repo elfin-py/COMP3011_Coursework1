@@ -42,16 +42,16 @@ To satisfy the coursework requirement for database-backed CRUD, the `Item` model
 These operations are backed by PostgreSQL through Prisma and return conventional JSON/status-code responses.
 
 ### Recommendation Pipeline
-The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method.
+The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method, and it fits a client flow where users can search from a curated city list, enter coordinates directly, or reuse a saved home location.
 
 ### Security Decisions
 Security was addressed at multiple layers.
 
-**Authentication.** The API uses JWT-based authentication with guarded routes. This choice provides a simple stateless security model suitable for a coursework API and allows protected ownership checks without server-side session storage.
+**Authentication.** The API uses JWT-based authentication with guarded routes. This choice provides a simple stateless security model suitable for a coursework API and allows protected ownership checks without server-side session storage. The account area also supports authenticated password change with current-password verification before a new bcrypt hash is stored.
 
 **Authorisation.** Ownership checks were added to CRUD operations so a user can only read, update, or delete their own items. This prevents horizontal privilege issues and ensures the API does not expose another user's wardrobe data.
 
-**Validation.** DTO validation is enforced in NestJS using class-validator and a global validation pipe. This helps prevent malformed payloads from entering business logic or the database layer.
+**Validation.** DTO validation is enforced in NestJS using class-validator and a global validation pipe. This helps prevent malformed payloads from entering business logic or the database layer, including password-policy enforcement and structured validation of saved account location input.
 
 **Secret handling.** Environment files are excluded from version control, and previously tracked `.env` data was removed from Git history. This is important because leaked API keys invalidate any claim of basic operational security.
 
@@ -69,12 +69,12 @@ Evaluation was carried out in three ways:
 3. end-to-end flow checks across authentication, item creation, recommendation, and feedback.
 
 ### Challenges and Lessons
-The most difficult implementation issue was timezone correctness. Weather relevance depends on when and where the user intends to wear an outfit, so naive datetime handling produces incorrect recommendations. A second challenge was external data reliability: trend and weather inputs are inherently less controllable than internal data, so the system had to fail clearly rather than silently.
+The most difficult implementation issue was timezone correctness. Weather relevance depends on when and where the user intends to wear an outfit, so naive datetime handling produces incorrect recommendations. This also affected account settings, because the interface needed to display an obvious user-facing timezone label while still storing a robust underlying zone identifier. A second challenge was external data reliability: trend and weather inputs are inherently less controllable than internal data, so the system had to fail clearly rather than silently.
 
 The main lesson from the project was that explainability matters as much as raw feature count. A smaller system with clear logic, secure defaults, and a strong end-to-end flow is more defensible than a larger but less coherent implementation.
 
 ### Limitations and Future Work
-The current trend sentiment model is lexical and can miss nuance. Personalisation is heuristic rather than learned from large-scale data, and automated test coverage remains narrower than production standards. Future work would therefore focus on stronger automated testing, scheduled trend-ingestion jobs, and a constrained learning-to-rank approach that preserves explainability.
+The current trend sentiment model is lexical and can miss nuance. Personalisation is heuristic rather than learned from large-scale data, and automated test coverage remains narrower than production standards. A scheduled email-digest channel was explored, but reliable SMTP or OAuth-backed delivery introduced provider and deployment dependencies that were disproportionate to the coursework scope. Future work would therefore focus on stronger automated testing, scheduled trend-ingestion jobs, a managed notification service if reminders are revisited, and a constrained learning-to-rank approach that preserves explainability.
 
 ## Conclusion
 Style Forecast was designed to bridge a genuine everyday knowledge gap: what to wear when time is limited and contextual information is fragmented. The final architecture reflects deliberate choices about maintainability, security, explainability, and practical usefulness. The project demonstrates a coherent API-centric system whose technical decisions are justified by both user need and engineering trade-offs.

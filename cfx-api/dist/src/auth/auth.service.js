@@ -56,8 +56,9 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async register(dto) {
+        const email = dto.email?.trim().toLowerCase() || `${dto.username.toLowerCase()}@styleforecast.local`;
         const [existingEmail, existingUsername] = await Promise.all([
-            this.usersService.findByEmail(dto.email),
+            this.usersService.findByEmail(email),
             this.usersService.findByUsername(dto.username),
         ]);
         if (existingEmail) {
@@ -72,7 +73,7 @@ let AuthService = class AuthService {
         try {
             user = await this.usersService.create({
                 username: dto.username,
-                email: dto.email,
+                email,
                 passwordHash,
                 cityLat: dto.cityLat ?? 53.8008,
                 cityLon: dto.cityLon ?? -1.5491,
@@ -87,8 +88,8 @@ let AuthService = class AuthService {
         const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
-    async validateUser(identifier, password) {
-        const user = await this.usersService.findByIdentifier(identifier);
+    async validateUser(username, password) {
+        const user = await this.usersService.findByUsername(username);
         if (!user)
             return null;
         const valid = await bcrypt.compare(password, user.passwordHash);
@@ -96,8 +97,8 @@ let AuthService = class AuthService {
             return null;
         return user;
     }
-    async login(identifier, password) {
-        const user = await this.validateUser(identifier, password);
+    async login(username, password) {
+        const user = await this.validateUser(username, password);
         if (!user)
             throw new common_1.UnauthorizedException('Invalid credentials');
         const tokens = this.issueTokens(user.id, user.email, user.username, user.role);

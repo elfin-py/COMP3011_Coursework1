@@ -1,3 +1,4 @@
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UsersService } from './users.service';
 export declare class UsersController {
@@ -6,17 +7,12 @@ export declare class UsersController {
     meSettings(user: any): Promise<{
         homeLocation: string;
         timezone: string;
-        dailyDigestEnabled: boolean;
-        dailyDigestHour: number;
-        emailDigestEnabled: boolean;
-        lastDigestSentAt: Date | null;
     }>;
     updateSettings(user: any, dto: UpdateSettingsDto): Promise<{
         homeLocation: string;
         timezone: string;
-        dailyDigestEnabled: boolean;
-        dailyDigestHour: number;
-        emailDigestEnabled: boolean;
-        lastDigestSentAt: Date | null;
+    }>;
+    changePassword(user: any, dto: ChangePasswordDto): Promise<{
+        message: string;
     }>;
 }

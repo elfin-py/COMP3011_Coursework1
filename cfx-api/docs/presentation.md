@@ -6,104 +6,121 @@ size: 16:9
 ---
 
 # Style Forecast
-## Climate Intelligence for Circular Fashion Decisions
+## Explainable outfit recommendations using weather, trends, and user context
 
-- From static outfit picks to context-aware, explainable recommendations
-- Integrates weather forecasting, trend sentiment, and user preference signals
-- Designed for practical reuse workflows: wear, swap, rent, recycle
-
----
-
-# Why This Matters
-- Fashion assistants are often style-only and ignore climate risk
-- Sustainability platforms are often logistics-only and ignore user adoption
-- Recommendation systems often optimize accuracy, not explainability
+- API-first web application
+- Designed for fast everyday decisions
+- Focused on comfort, confidence, and transparency
 
 ---
 
-# Core Innovation
-- A single scoring pipeline combining:
-  - Hourly weather suitability (temperature, precipitation, wind)
-  - Trend momentum and sentiment from recent fashion media
-  - Personal feedback adaptation over time
-- Every recommendation includes interpretable score components
-- Chat intent acts as a soft constraint, not a black-box override
+# The Problem
+- People often choose outfits with incomplete context
+- Weather can change by the time they leave the house
+- Trend awareness is usually vague rather than explicit
+- Most fashion tools are either style-only or weather-only
 
 ---
 
-# Research Curiosity: Alternatives Explored
-- Pure collaborative filtering: rejected (cold-start, sparse implicit signals)
-- End-to-end LLM ranking: rejected (non-deterministic and hard to audit)
-- Chosen approach: hybrid heuristic + live data + bounded personalization
-- Rationale: stable outputs, transparent trade-offs, demo reliability
+# What The System Does
+- Takes a location and time
+- Pulls live weather context from Open-Meteo
+- Combines that with trend signals and saved user preferences
+- Returns an outfit recommendation with explainable scoring
+- Lets signed-in users save looks they like for later
 
 ---
 
-# Novel Data Integration
-- Live Open-Meteo forecast + geocoding timezone resolution
-- RSS-derived trend extraction with recency window (last 60 days)
-- Outfit usage logging with captured weather context
-- Feedback memory to adapt subsequent ranking decisions
+# Key User Features
+- Username/password authentication with secure password rules
+- Searchable city selection or direct coordinate input
+- Saved home location in the account area
+- Derived timezone handling rather than manual timezone entry
+- Liked outfits page with saved recommendation history and inspiration images
 
 ---
 
-# System Architecture
-- Frontend: React + Vite (interactive recommendation and chat UX)
-- Backend: NestJS modular services
-- Data layer: Prisma + PostgreSQL
-- Auth: JWT access + refresh token lifecycle
-- API docs via OpenAPI/Swagger for reproducible integration
+# Architecture
+- Frontend: React + Vite
+- Backend: NestJS REST API
+- Database: PostgreSQL with Prisma
+- External data: Open-Meteo forecast + trend ingestion
+- Auth: JWT-protected endpoints for personal features
 
 ---
 
-# Scoring Design (Expert-Level View)
-- Base utility = weighted blend of:
-  - Thermal comfort fit
-  - Rain and wind resilience
-  - Trend relevance boost
-  - User-adaptive confidence bonus
-- Guardrails:
-  - Penalties for weather-incompatible materials/tags
-  - Bounded boosts to prevent unstable ranking swings
-- Outcome: robust and explainable recommendations under noisy inputs
+# Recommendation Logic
+- Weather suitability:
+  - temperature
+  - precipitation probability
+  - wind
+- Trend relevance:
+  - recent fashion tags and sentiment
+- User adaptation:
+  - feedback and saved behaviour
+- Output stays bounded and interpretable rather than opaque
 
 ---
 
-# Quality and Evaluation Strategy
-- Functional correctness: end-to-end API + UI flows
-- Robustness: timezone conversion and nearest-hour weather matching
-- Relevance: trend recency filtering and sentiment weighting
-- Explainability: item-level and outfit-level score decomposition
-- Delivery quality: reproducible setup, documented endpoints, runnable build
+# Why These Choices
+- PostgreSQL was appropriate because the app is strongly relational
+- NestJS suited a modular backend with clear services and DTO validation
+- TypeScript reduced mismatch between frontend and backend contracts
+- REST was more appropriate than GraphQL for a stable, demonstrable coursework API
 
 ---
 
-# Live Demo Script (Oral Exam)
-1. Register/login and obtain JWT
-2. Create item + outfit
-3. Request recommendation for a specific location/time
-4. Inspect score breakdown (weather + trend + feedback effects)
-5. Submit feedback and re-query to show adaptive change
-6. Use chat recommendation for constrained scenario refinement
+# Security and Reliability
+- Passwords are hashed with bcrypt
+- Change-password flow verifies the current password first
+- JWT guards protect account and saved-look endpoints
+- Ownership checks prevent users accessing each other’s data
+- Validation pipes reduce malformed input reaching the database
 
 ---
 
-# Limitations and Cutting-Edge Next Steps
-- Current sentiment model is lexical and not multimodal
-- Personalization is bounded heuristic, not learned embeddings
-- Next-stage roadmap:
-  - Retrieval-augmented trend intelligence from richer sources
-  - Lightweight learning-to-rank with explainability constraints
-  - Counterfactual explanations: “why this outfit over the next best one?”
+# Interesting Implementation Decisions
+- Timezone is derived from location instead of manually typed
+- A blank saved location does not force recommendation autofill
+- Users can search a city list or use coordinates directly
+- Saved recommendations store the recommendation context, not just an outfit id
 
 ---
 
-# Generative AI Use (Transparent and Controlled)
-- Used for selective ideation, small code corrections, and document scaffolding
-- Final architecture, implementation, and validation decisions were human-led
-- Every suggestion was manually reviewed and tested before adoption
+# Evaluation and Limitations
+- Verified through runnable builds and end-to-end user flows
+- Recommendation quality is explainable rather than benchmark-driven
+- Main challenge: timezone correctness and external data reliability
+- Limitation: trend sentiment is still heuristic
+- Explored but removed: email digest delivery, because SMTP/OAuth setup was disproportionate for the coursework scope
+
+---
+
+# Demo Plan
+1. Sign up and log in
+2. Save or clear a home location in account settings
+3. Generate a recommendation for a city or coordinates
+4. Show score explanation and weather context
+5. Like the recommendation and open the saved looks page
+6. Show password change flow and protected account features
 
 ---
 
 # Closing
-## Style Forecast demonstrates explainable, research-led innovation for real-world circular fashion decisions.
+## Style Forecast turns fragmented context into a usable, explainable recommendation
+
+- practical user value
+- justified architecture
+- secure API design
+- clear path for future improvement
+
+---
+
+# Sources
+- Open-Meteo API documentation: https://open-meteo.com/en/docs
+- TypeScript documentation: https://www.typescriptlang.org/
+- NestJS documentation: https://docs.nestjs.com/
+- Prisma ORM documentation: https://www.prisma.io/docs
+- PostgreSQL documentation: https://www.postgresql.org/docs/
+- React documentation: https://react.dev/
+- Vite guide: https://vite.dev/guide/

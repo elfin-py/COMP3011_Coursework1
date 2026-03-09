@@ -14,9 +14,6 @@ const class_validator_1 = require("class-validator");
 class UpdateSettingsDto {
     homeLocation;
     timezone;
-    dailyDigestEnabled;
-    dailyDigestHour;
-    emailDigestEnabled;
 }
 exports.UpdateSettingsDto = UpdateSettingsDto;
 __decorate([
@@ -29,21 +26,4 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateSettingsDto.prototype, "timezone", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsBoolean)(),
-    __metadata("design:type", Boolean)
-], UpdateSettingsDto.prototype, "dailyDigestEnabled", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(0),
-    (0, class_validator_1.Max)(23),
-    __metadata("design:type", Number)
-], UpdateSettingsDto.prototype, "dailyDigestHour", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsBoolean)(),
-    __metadata("design:type", Boolean)
-], UpdateSettingsDto.prototype, "emailDigestEnabled", void 0);
 //# sourceMappingURL=update-settings.dto.js.map
