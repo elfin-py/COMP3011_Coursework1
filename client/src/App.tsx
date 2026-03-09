@@ -43,6 +43,33 @@ type ChatMessage = {
   at: string;
 };
 
+type SavedRecommendation = {
+  id: string;
+  outfitId?: string | null;
+  outfitName: string;
+  location: string;
+  recommendedFor: string;
+  weatherSummary: {
+    temperatureC?: number;
+    precipProb?: number;
+    windKph?: number;
+    conditions?: string;
+  };
+  outfitSnapshot: {
+    id?: string;
+    name: string;
+    occasion?: string;
+    styleTags?: string[];
+    items?: {
+      id: string;
+      material?: string;
+      sizeLabel?: string;
+      styleTags?: string[];
+    }[];
+  };
+  createdAt: string;
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000/api';
 
 async function api<T>(
@@ -68,6 +95,8 @@ async function api<T>(
 function App() {
   const CHAT_HISTORY_KEY = 'sf_chat_history';
   const [email, setEmail] = useState('you@example.com');
+  const [username, setUsername] = useState('styleuser');
+  const [identifier, setIdentifier] = useState('styleuser');
   const [password, setPassword] = useState('Password123!');
   const [token, setToken] = useState<string | null>(null);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
@@ -87,6 +116,9 @@ function App() {
   const [imgElapsed, setImgElapsed] = useState<number>(0);
   const [loadingRec, setLoadingRec] = useState(false);
   const [savingOutfit, setSavingOutfit] = useState(false);
+  const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
+  const [savedViewLoading, setSavedViewLoading] = useState(false);
+  const [activeView, setActiveView] = useState<'recommend' | 'saved'>('recommend');
   const [chatOpen, setChatOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -144,6 +176,21 @@ function App() {
       });
   }, [token]);
 
+  useEffect(() => {
+    if (!token) {
+      setSavedRecommendations([]);
+      setActiveView('recommend');
+      return;
+    }
+    setSavedViewLoading(true);
+    api<SavedRecommendation[]>('/outfits/saved', {}, token)
+      .then((res) => setSavedRecommendations(res))
+      .catch(() => {
+        setSavedRecommendations([]);
+      })
+      .finally(() => setSavedViewLoading(false));
+  }, [token]);
+
   // theme persist
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -167,6 +214,32 @@ function App() {
     if (s.startsWith('error')) return 'error';
     return 'info';
   }, [status]);
+
+  const recommendationKey = useMemo(() => {
+    if (!recommendation || !location) return null;
+    return JSON.stringify({
+      outfitId: recommendation.outfit?.id ?? null,
+      location,
+      recommendedFor: climate?.validFor ?? datetime,
+    });
+  }, [recommendation, location, climate?.validFor, datetime]);
+
+  const currentRecommendationSaved = useMemo(() => {
+    if (!recommendationKey) return false;
+    return savedRecommendations.some((saved) =>
+      JSON.stringify({
+        outfitId: saved.outfitId ?? null,
+        location: saved.location,
+        recommendedFor: saved.recommendedFor,
+      }) === recommendationKey,
+    );
+  }, [savedRecommendations, recommendationKey]);
+
+  const refreshSavedRecommendations = useCallback(async () => {
+    if (!token) return;
+    const res = await api<SavedRecommendation[]>('/outfits/saved', {}, token);
+    setSavedRecommendations(res);
+  }, [token]);
 
   const useGeo = () => {
     if (!navigator.geolocation) {
@@ -403,6 +476,39 @@ function App() {
     }).format(new Date(iso));
   };
 
+  const currentRecommendationPayload = useMemo(() => {
+    if (!recommendation || !location) return null;
+    const recommendedFor = climate?.validFor ?? datetime;
+    if (!recommendedFor) return null;
+    return {
+      recommendedFor,
+      location,
+      weather: {
+        temperatureC: climate?.temperatureC,
+        precipProb: climate?.precipProb,
+        windKph: climate?.windKph,
+        conditions: climate?.conditions,
+      },
+      outfit: {
+        id: recommendation.outfit?.id,
+        name: recommendation.outfit?.name ?? 'Recommended outfit',
+        occasion: recommendation.outfit?.occasion,
+        styleTags:
+          recommendation.outfit?.styleTags?.length
+            ? recommendation.outfit.styleTags
+            : recommendation.outfit?.items
+                ?.flatMap((entry: any) => entry.item?.styleTags ?? [])
+                .slice(0, 8) ?? [],
+        items: (recommendation.outfit?.items ?? []).map((entry: any) => ({
+          id: entry.item?.id ?? entry.itemId,
+          material: entry.item?.material,
+          sizeLabel: entry.item?.sizeLabel,
+          styleTags: entry.item?.styleTags ?? [],
+        })),
+      },
+    };
+  }, [recommendation, location, climate, datetime]);
+
   return (
     <>
     <div className="page">
@@ -412,23 +518,49 @@ function App() {
         </div>
         <div className="auth">
           <button
-            className="btn ghost"
-            onClick={() => {
-              setAuthView('login');
-              setShowAuth((v) => authView !== 'login' || !v);
-            }}
+            className={`btn ghost nav-tab ${activeView === 'recommend' ? 'active' : ''}`}
+            onClick={() => setActiveView('recommend')}
           >
-            Login
+            Recommend
           </button>
-          <button
-            className="btn"
-            onClick={() => {
-              setAuthView('register');
-              setShowAuth((v) => authView !== 'register' || !v);
-            }}
-          >
-            Register
-          </button>
+          {authed && (
+            <button
+              className={`btn ghost nav-tab ${activeView === 'saved' ? 'active' : ''}`}
+              onClick={() => setActiveView('saved')}
+            >
+              Saved
+            </button>
+          )}
+          {!authed && (
+            <>
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  setAuthView('login');
+                  setShowAuth((v) => authView !== 'login' || !v);
+                }}
+              >
+                Login
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setAuthView('register');
+                  setShowAuth((v) => authView !== 'register' || !v);
+                }}
+              >
+                Register
+              </button>
+            </>
+          )}
+          {authed && (
+            <button
+              className="btn outline"
+              onClick={() => setShowAuth((v) => !v)}
+            >
+              Account
+            </button>
+          )}
           <button
             className="btn outline"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
@@ -448,11 +580,24 @@ function App() {
             </button>
           </div>
           <div className="row">
+            {authView === 'register' && (
+              <input
+                className="input"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setIdentifier(e.target.value);
+                }}
+                placeholder="username"
+              />
+            )}
             <input
               className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email"
+              value={authView === 'login' ? identifier : email}
+              onChange={(e) =>
+                authView === 'login' ? setIdentifier(e.target.value) : setEmail(e.target.value)
+              }
+              placeholder={authView === 'login' ? 'username or email' : 'email'}
             />
             <input
               className="input"
@@ -469,6 +614,7 @@ function App() {
                     await api('/auth/register', {
                       method: 'POST',
                       body: JSON.stringify({
+                        username,
                         email,
                         password,
                         cityLat: 53.8,
@@ -480,7 +626,10 @@ function App() {
                     '/auth/login',
                     {
                       method: 'POST',
-                      body: JSON.stringify({ email, password }),
+                      body: JSON.stringify({
+                        identifier,
+                        password,
+                      }),
                     },
                   );
                   setToken(res.tokens.accessToken);
@@ -496,12 +645,17 @@ function App() {
               onClick={() => {
                 setToken(null);
                 setRecommendation(null);
+                setSavedRecommendations([]);
+                setActiveView('recommend');
                 setStatus('Session cleared');
               }}
             >
               Logout
             </button>
           </div>
+          <p className="hint">
+            Use a password with at least 7 characters, 1 capital letter, and 1 number.
+          </p>
           <p className="hint">{authed ? 'Token set' : 'Not authenticated'}</p>
           {authed && (
             <div className="settings-panel">
@@ -603,6 +757,7 @@ function App() {
       )}
 
       <main className="grid single">
+        {activeView === 'recommend' && (
         <section className="card recommend-card">
           <div className="card-head">
             <div>
@@ -716,37 +871,41 @@ function App() {
             </button>
             {authed && recommendation && (
               <button
-                className="btn outline"
+                className={`btn outline save-heart ${currentRecommendationSaved ? 'saved' : ''}`}
                 disabled={savingOutfit}
                 onClick={() =>
                   handle(async () => {
+                    if (!currentRecommendationPayload) {
+                      setStatus('Error: generate a recommendation with weather first');
+                      return;
+                    }
                     setSavingOutfit(true);
                     try {
-                      const tags: string[] =
-                        recommendation.outfit?.styleTags?.length
-                          ? recommendation.outfit.styleTags
-                          : recommendation.outfit?.items?.[0]?.item?.styleTags ?? [];
-                      await api(
-                        '/outfits',
+                      const res = await api<{ saved: boolean }>(
+                        '/outfits/saved/toggle',
                         {
                           method: 'POST',
-                          body: JSON.stringify({
-                            name: `Saved look ${new Date().toLocaleDateString('en-GB')}`,
-                            occasion: 'daily recommendation',
-                            styleTags: tags,
-                            itemIds: [],
-                          }),
+                          body: JSON.stringify(currentRecommendationPayload),
                         },
                         token || undefined,
                       );
-                      setStatus('Done: recommendation saved to your outfits');
+                      await refreshSavedRecommendations();
+                      setStatus(
+                        res.saved
+                          ? 'Done: recommendation saved to your favourites'
+                          : 'Done: recommendation removed from your favourites',
+                      );
                     } finally {
                       setSavingOutfit(false);
                     }
                   })
                 }
               >
-                {savingOutfit ? 'Saving…' : 'Save this recommendation'}
+                {savingOutfit
+                  ? 'Updating…'
+                  : currentRecommendationSaved
+                  ? 'Unheart this look'
+                  : 'Heart this look'}
               </button>
             )}
           </div>
@@ -831,6 +990,105 @@ function App() {
             </div>
           )}
         </section>
+        )}
+
+        {activeView === 'saved' && authed && (
+          <section className="card recommend-card">
+            <div className="card-head">
+              <div>
+                <p className="eyebrow">Saved favourites</p>
+                <h2>Saved Outfits</h2>
+                <p className="sub">
+                  Hearted recommendations are stored with the weather, place, and time they were suggested. You can keep up to 20 at once.
+                </p>
+              </div>
+              <div className="saved-count">
+                {savedRecommendations.length} / 20 saved
+              </div>
+            </div>
+
+            {savedViewLoading && <p className="tile-loading">Loading saved outfits…</p>}
+
+            {!savedViewLoading && savedRecommendations.length === 0 && (
+              <div className="saved-empty">
+                <strong>No saved outfits yet.</strong>
+                <p className="sub">
+                  Generate a recommendation, heart it, and it will appear here with its weather snapshot.
+                </p>
+              </div>
+            )}
+
+            {!savedViewLoading && savedRecommendations.length > 0 && (
+              <div className="saved-grid">
+                {savedRecommendations.map((saved) => (
+                  <article key={saved.id} className="saved-card">
+                    <div className="saved-card-head">
+                      <div>
+                        <div className="saved-title">{saved.outfitName}</div>
+                        <div className="saved-meta">
+                          {saved.location} • {formatLocalHuman(saved.recommendedFor, saved.location)}
+                        </div>
+                      </div>
+                      <button
+                        className="btn ghost saved-remove"
+                        onClick={() =>
+                          handle(async () => {
+                            setSavingOutfit(true);
+                            try {
+                              await api(
+                                '/outfits/saved/toggle',
+                                {
+                                  method: 'POST',
+                                  body: JSON.stringify({
+                                    recommendedFor: saved.recommendedFor,
+                                    location: saved.location,
+                                    weather: saved.weatherSummary,
+                                    outfit: saved.outfitSnapshot,
+                                  }),
+                                },
+                                token || undefined,
+                              );
+                              await refreshSavedRecommendations();
+                              setStatus('Done: saved outfit removed');
+                            } finally {
+                              setSavingOutfit(false);
+                            }
+                          })
+                        }
+                      >
+                        Unheart
+                      </button>
+                    </div>
+                    <div className="saved-weather">
+                      {saved.weatherSummary.temperatureC ?? '–'}°C •{' '}
+                      {precipWords(saved.weatherSummary.precipProb, saved.weatherSummary.conditions)} •{' '}
+                      {windWords(saved.weatherSummary.windKph)} • {saved.weatherSummary.conditions ?? '—'}
+                    </div>
+                    <div className="saved-tags">
+                      {(saved.outfitSnapshot.styleTags ?? []).slice(0, 4).map((tag) => (
+                        <span key={tag} className="pill pill-soft">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="saved-items">
+                      {(saved.outfitSnapshot.items ?? []).map((item) => (
+                        <div key={item.id} className="saved-item">
+                          <strong>{item.material || 'Wardrobe item'}</strong>
+                          <span>
+                            {[item.sizeLabel, ...(item.styleTags ?? []).slice(0, 2)]
+                              .filter(Boolean)
+                              .join(' • ') || 'No extra metadata'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </main>
 
     </div>

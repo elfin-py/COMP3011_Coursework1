@@ -1,5 +1,6 @@
 import { CreateOutfitDto } from './dto/create-outfit.dto';
 import { LogUsageDto } from './dto/log-usage.dto';
+import { ToggleSavedRecommendationDto } from './dto/toggle-saved-recommendation.dto';
 import { OutfitsService } from './outfits.service';
 export declare class OutfitsController {
     private readonly outfitsService;
@@ -64,6 +65,17 @@ export declare class OutfitsController {
         name: string;
         occasion: string | null;
     })[]>;
+    findSaved(user: any): import("@prisma/client").Prisma.PrismaPromise<{
+        id: string;
+        createdAt: Date;
+        userId: string;
+        location: string;
+        outfitId: string | null;
+        recommendedFor: Date;
+        outfitName: string;
+        weatherSummary: import("@prisma/client/runtime/client").JsonValue;
+        outfitSnapshot: import("@prisma/client/runtime/client").JsonValue;
+    }[]>;
     logUsage(user: any, id: string, dto: LogUsageDto): Promise<{
         id: string;
         createdAt: Date;
@@ -75,5 +87,9 @@ export declare class OutfitsController {
         outfitId: string;
         usedAt: Date;
         climateSnapshotId: string | null;
+    }>;
+    toggleSaved(user: any, dto: ToggleSavedRecommendationDto): Promise<{
+        saved: boolean;
+        id: string;
     }>;
 }

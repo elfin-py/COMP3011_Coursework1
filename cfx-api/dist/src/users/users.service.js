@@ -38,6 +38,7 @@ let UsersService = UsersService_1 = class UsersService {
     async create(dto) {
         return this.prisma.user.create({
             data: {
+                username: dto.username,
                 email: dto.email,
                 passwordHash: dto.passwordHash,
                 role: client_1.Role.USER,
@@ -60,6 +61,16 @@ let UsersService = UsersService_1 = class UsersService {
     }
     findByEmail(email) {
         return this.prisma.user.findUnique({ where: { email } });
+    }
+    findByUsername(username) {
+        return this.prisma.user.findUnique({ where: { username } });
+    }
+    findByIdentifier(identifier) {
+        return this.prisma.user.findFirst({
+            where: {
+                OR: [{ email: identifier }, { username: identifier }],
+            },
+        });
     }
     findById(id) {
         return this.prisma.user.findUnique({ where: { id } });

@@ -28,6 +28,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
   async create(dto: CreateUserDto) {
     return this.prisma.user.create({
       data: {
+        username: dto.username,
         email: dto.email,
         passwordHash: dto.passwordHash,
         role: Role.USER,
@@ -51,6 +52,18 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
 
   findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
+  }
+
+  findByUsername(username: string) {
+    return this.prisma.user.findUnique({ where: { username } });
+  }
+
+  findByIdentifier(identifier: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { username: identifier }],
+      },
+    });
   }
 
   findById(id: string) {

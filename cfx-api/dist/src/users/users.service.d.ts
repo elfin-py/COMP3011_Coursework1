@@ -31,6 +31,7 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
         updatedAt: Date;
+        username: string;
     }>;
     findByEmail(email: string): import("@prisma/client").Prisma.Prisma__UserClient<{
         id: string;
@@ -39,6 +40,25 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
         updatedAt: Date;
+        username: string;
+    } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    findByUsername(username: string): import("@prisma/client").Prisma.Prisma__UserClient<{
+        id: string;
+        email: string;
+        passwordHash: string;
+        role: import("@prisma/client").$Enums.Role;
+        createdAt: Date;
+        updatedAt: Date;
+        username: string;
+    } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    findByIdentifier(identifier: string): import("@prisma/client").Prisma.Prisma__UserClient<{
+        id: string;
+        email: string;
+        passwordHash: string;
+        role: import("@prisma/client").$Enums.Role;
+        createdAt: Date;
+        updatedAt: Date;
+        username: string;
     } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findById(id: string): import("@prisma/client").Prisma.Prisma__UserClient<{
         id: string;
@@ -47,6 +67,7 @@ export declare class UsersService implements OnModuleInit, OnModuleDestroy {
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
         updatedAt: Date;
+        username: string;
     } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     getSettings(userId: string): Promise<{
         homeLocation: string;

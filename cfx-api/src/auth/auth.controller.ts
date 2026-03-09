@@ -17,7 +17,7 @@ export class AuthController {
 
   @Post('login')
   login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password);
+    return this.authService.login(dto.identifier ?? dto.email ?? '', dto.password);
   }
 
   @Post('refresh')

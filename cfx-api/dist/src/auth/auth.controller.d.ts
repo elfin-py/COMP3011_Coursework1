@@ -20,6 +20,7 @@ export declare class AuthController {
             role: import("@prisma/client").$Enums.Role;
             createdAt: Date;
             updatedAt: Date;
+            username: string;
         }, "passwordHash">;
         tokens: {
             accessToken: string;
@@ -34,6 +35,7 @@ export declare class AuthController {
             role: import("@prisma/client").$Enums.Role;
             createdAt: Date;
             updatedAt: Date;
+            username: string;
         }, "passwordHash">;
         tokens: {
             accessToken: string;

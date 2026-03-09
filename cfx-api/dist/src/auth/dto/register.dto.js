@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RegisterDto = void 0;
 const class_validator_1 = require("class-validator");
 class RegisterDto {
+    username;
     email;
     password;
     cityLat;
@@ -19,11 +20,19 @@ class RegisterDto {
 }
 exports.RegisterDto = RegisterDto;
 __decorate([
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9_]{3,24}$/, {
+        message: 'username must be 3-24 characters and contain only letters, numbers, or underscores',
+    }),
+    __metadata("design:type", String)
+], RegisterDto.prototype, "username", void 0);
+__decorate([
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "email", void 0);
 __decorate([
-    (0, class_validator_1.MinLength)(8),
+    (0, class_validator_1.Matches)(/^(?=.*[A-Z])(?=.*\d).{7,}$/, {
+        message: 'password must be at least 7 characters and include 1 capital letter and 1 number',
+    }),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "password", void 0);
 __decorate([

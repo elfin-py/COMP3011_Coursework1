@@ -55,6 +55,47 @@ let OutfitsService = class OutfitsService {
             include: { items: { include: { item: true } } },
         });
     }
+    getSavedRecommendations(userId) {
+        return this.prisma.savedRecommendation.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+        });
+    }
+    async toggleSavedRecommendation(userId, dto) {
+        const outfitId = dto.outfit.id ?? null;
+        const recommendedFor = new Date(dto.recommendedFor);
+        const existing = await this.prisma.savedRecommendation.findFirst({
+            where: {
+                userId,
+                outfitId,
+                location: dto.location,
+                recommendedFor,
+            },
+        });
+        if (existing) {
+            await this.prisma.savedRecommendation.delete({ where: { id: existing.id } });
+            return { saved: false, id: existing.id };
+        }
+        const savedCount = await this.prisma.savedRecommendation.count({
+            where: { userId },
+        });
+        if (savedCount >= 20) {
+            throw new common_1.BadRequestException('You can save up to 20 recommendations at a time');
+        }
+        const created = await this.prisma.savedRecommendation.create({
+            data: {
+                userId,
+                outfitId,
+                outfitName: dto.outfit.name,
+                location: dto.location,
+                recommendedFor,
+                weatherSummary: dto.weather,
+                outfitSnapshot: dto.outfit,
+            },
+        });
+        return { saved: true, id: created.id };
+    }
     async logUsage(userId, outfitId, dto) {
         const outfit = await this.prisma.outfit.findUnique({ where: { id: outfitId } });
         if (!outfit || outfit.userId !== userId) {

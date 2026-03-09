@@ -1,7 +1,9 @@
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOutfitDto } from './dto/create-outfit.dto';
 import { LogUsageDto } from './dto/log-usage.dto';
 import { ClimateService } from '../climate/climate.service';
+import { ToggleSavedRecommendationDto } from './dto/toggle-saved-recommendation.dto';
 export declare class OutfitsService {
     private readonly prisma;
     private readonly climateService;
@@ -20,7 +22,7 @@ export declare class OutfitsService {
                 condition: number;
                 styleEmbedding: number[];
                 status: import("@prisma/client").$Enums.ItemStatus;
-                photos: import("@prisma/client/runtime/client").JsonValue | null;
+                photos: Prisma.JsonValue | null;
                 insulation: number;
                 waterproof: number;
             };
@@ -36,7 +38,7 @@ export declare class OutfitsService {
         name: string;
         occasion: string | null;
     }>;
-    findAll(userId: string): import("@prisma/client").Prisma.PrismaPromise<({
+    findAll(userId: string): Prisma.PrismaPromise<({
         items: ({
             item: {
                 id: string;
@@ -50,7 +52,7 @@ export declare class OutfitsService {
                 condition: number;
                 styleEmbedding: number[];
                 status: import("@prisma/client").$Enums.ItemStatus;
-                photos: import("@prisma/client/runtime/client").JsonValue | null;
+                photos: Prisma.JsonValue | null;
                 insulation: number;
                 waterproof: number;
             };
@@ -66,6 +68,21 @@ export declare class OutfitsService {
         name: string;
         occasion: string | null;
     })[]>;
+    getSavedRecommendations(userId: string): Prisma.PrismaPromise<{
+        id: string;
+        createdAt: Date;
+        userId: string;
+        location: string;
+        outfitId: string | null;
+        recommendedFor: Date;
+        outfitName: string;
+        weatherSummary: Prisma.JsonValue;
+        outfitSnapshot: Prisma.JsonValue;
+    }[]>;
+    toggleSavedRecommendation(userId: string, dto: ToggleSavedRecommendationDto): Promise<{
+        saved: boolean;
+        id: string;
+    }>;
     logUsage(userId: string, outfitId: string, dto: LogUsageDto): Promise<{
         id: string;
         createdAt: Date;

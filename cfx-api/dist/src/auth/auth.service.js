@@ -56,15 +56,22 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async register(dto) {
-        const existing = await this.usersService.findByEmail(dto.email);
-        if (existing) {
+        const [existingEmail, existingUsername] = await Promise.all([
+            this.usersService.findByEmail(dto.email),
+            this.usersService.findByUsername(dto.username),
+        ]);
+        if (existingEmail) {
             throw new common_1.ConflictException('Email already in use');
+        }
+        if (existingUsername) {
+            throw new common_1.ConflictException('Username already in use');
         }
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(dto.password, saltRounds);
         let user;
         try {
             user = await this.usersService.create({
+                username: dto.username,
                 email: dto.email,
                 passwordHash,
                 cityLat: dto.cityLat ?? 53.8008,
@@ -73,15 +80,15 @@ let AuthService = class AuthService {
         }
         catch (e) {
             if (e instanceof client_1.Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-                throw new common_1.ConflictException('Email already in use');
+                throw new common_1.ConflictException('Email or username already in use');
             }
             throw e;
         }
-        const tokens = this.issueTokens(user.id, user.email, user.role);
+        const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
-    async validateUser(email, password) {
-        const user = await this.usersService.findByEmail(email);
+    async validateUser(identifier, password) {
+        const user = await this.usersService.findByIdentifier(identifier);
         if (!user)
             return null;
         const valid = await bcrypt.compare(password, user.passwordHash);
@@ -89,11 +96,11 @@ let AuthService = class AuthService {
             return null;
         return user;
     }
-    async login(email, password) {
-        const user = await this.validateUser(email, password);
+    async login(identifier, password) {
+        const user = await this.validateUser(identifier, password);
         if (!user)
             throw new common_1.UnauthorizedException('Invalid credentials');
-        const tokens = this.issueTokens(user.id, user.email, user.role);
+        const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
     async refresh(refreshToken) {
@@ -106,15 +113,15 @@ let AuthService = class AuthService {
         catch {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
-        const user = await this.usersService.findByEmail(payload.email);
-        if (!user || user.id !== payload.sub) {
+        const user = await this.usersService.findById(payload.sub);
+        if (!user) {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
-        const tokens = this.issueTokens(user.id, user.email, user.role);
+        const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
-    issueTokens(id, email, role) {
-        const payload = { sub: id, email, role };
+    issueTokens(id, email, username, role) {
+        const payload = { sub: id, email, username, role };
         const accessToken = this.jwtService.sign(payload, {
             secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
             expiresIn: process.env.JWT_ACCESS_EXPIRES || '900s',

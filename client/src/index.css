@@ -130,6 +130,12 @@ body {
   align-items: center;
 }
 
+.nav-tab.active {
+  background: var(--accent);
+  color: var(--btn-text);
+  border-color: transparent;
+}
+
 .auth-panel {
   position: fixed;
   top: 56px;
@@ -499,6 +505,11 @@ select.input {
   color: var(--ink);
 }
 
+.save-heart.saved {
+  background: color-mix(in srgb, var(--accent) 14%, var(--input-bg));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
 .hint {
   color: var(--muted);
   margin-top: 0.5rem;
@@ -752,6 +763,79 @@ select.input {
   color: var(--muted);
   margin: 0.4rem 0 0;
   font-size: 0.9rem;
+}
+
+.saved-count {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.saved-empty {
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--card) 84%, transparent);
+}
+
+.saved-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.saved-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+  background: var(--input-bg);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.saved-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.saved-title {
+  font-weight: 700;
+}
+
+.saved-meta,
+.saved-weather {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.saved-remove {
+  min-height: 36px;
+  width: auto;
+  padding: 0.35rem 0.7rem;
+}
+
+.saved-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.saved-items {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.saved-item {
+  display: grid;
+  gap: 0.15rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.55rem;
+}
+
+.saved-item span {
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .hourglass {

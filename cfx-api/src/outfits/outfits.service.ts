@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOutfitDto } from './dto/create-outfit.dto';
 import { LogUsageDto } from './dto/log-usage.dto';
 import { ClimateService } from '../climate/climate.service';
+import { ToggleSavedRecommendationDto } from './dto/toggle-saved-recommendation.dto';
 
 @Injectable()
 export class OutfitsService {
@@ -46,6 +52,55 @@ export class OutfitsService {
       where: { userId },
       include: { items: { include: { item: true } } },
     });
+  }
+
+  getSavedRecommendations(userId: string) {
+    return this.prisma.savedRecommendation.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  async toggleSavedRecommendation(
+    userId: string,
+    dto: ToggleSavedRecommendationDto,
+  ) {
+    const outfitId = dto.outfit.id ?? null;
+    const recommendedFor = new Date(dto.recommendedFor);
+    const existing = await this.prisma.savedRecommendation.findFirst({
+      where: {
+        userId,
+        outfitId,
+        location: dto.location,
+        recommendedFor,
+      },
+    });
+
+    if (existing) {
+      await this.prisma.savedRecommendation.delete({ where: { id: existing.id } });
+      return { saved: false, id: existing.id };
+    }
+
+    const savedCount = await this.prisma.savedRecommendation.count({
+      where: { userId },
+    });
+    if (savedCount >= 20) {
+      throw new BadRequestException('You can save up to 20 recommendations at a time');
+    }
+
+    const created = await this.prisma.savedRecommendation.create({
+      data: {
+        userId,
+        outfitId,
+        outfitName: dto.outfit.name,
+        location: dto.location,
+        recommendedFor,
+        weatherSummary: dto.weather as Prisma.InputJsonValue,
+        outfitSnapshot: dto.outfit as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return { saved: true, id: created.id };
   }
 
   async logUsage(userId: string, outfitId: string, dto: LogUsageDto) {
