@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ClimateModule } from '../climate/climate.module';
+import { requiredEnv } from '../common/config/auth-config';
 import { RecommendationModule } from '../recommendation/recommendation.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
@@ -10,7 +11,7 @@ import { ChatService } from './chat.service';
     ClimateModule,
     RecommendationModule,
     JwtModule.register({
-      secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+      secret: requiredEnv('JWT_ACCESS_SECRET'),
     }),
   ],
   controllers: [ChatController],

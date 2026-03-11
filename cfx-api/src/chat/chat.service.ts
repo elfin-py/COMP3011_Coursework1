@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { requiredEnv } from '../common/config/auth-config';
 import { ClimateService } from '../climate/climate.service';
 import { RecommendationService } from '../recommendation/recommendation.service';
 import { ChatRecommendationDto } from './dto/chat-recommendation.dto';
@@ -88,7 +89,7 @@ export class ChatService {
     if (!raw) return null;
     try {
       const payload = await this.jwtService.verifyAsync(raw, {
-        secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+        secret: requiredEnv('JWT_ACCESS_SECRET'),
       });
       return payload?.sub || null;
     } catch {

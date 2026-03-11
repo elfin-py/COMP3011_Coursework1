@@ -1,5 +1,6 @@
-import { Controller, Get, Query, Req } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RecommendationService } from './recommendation.service';
 
 @ApiTags('recommendations')
@@ -7,6 +8,7 @@ import { RecommendationService } from './recommendation.service';
 export class RecommendationController {
   constructor(private readonly service: RecommendationService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('outfit')
   outfit(
     @Req() req: any,

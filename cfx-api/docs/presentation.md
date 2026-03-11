@@ -25,7 +25,7 @@ size: 16:9
 # What The System Does
 - Takes a location and time
 - Pulls live weather context from Open-Meteo
-- Combines that with trend signals and saved user preferences
+- Combines that with trend signals and optional authenticated user feedback
 - Returns an outfit recommendation with explainable scoring
 - Lets signed-in users save looks they like for later
 
@@ -57,7 +57,7 @@ size: 16:9
 - Trend relevance:
   - recent fashion tags and sentiment
 - User adaptation:
-  - feedback and saved behaviour
+  - feedback is applied when the request is authenticated
 - Output stays bounded and interpretable rather than opaque
 
 ---
@@ -74,8 +74,10 @@ size: 16:9
 - Passwords are hashed with bcrypt
 - Change-password flow verifies the current password first
 - JWT guards protect account and saved-look endpoints
+- JWT secrets are required environment configuration, not hard-coded fallbacks
 - Ownership checks prevent users accessing each other’s data
 - Validation pipes reduce malformed input reaching the database
+- Pinterest proxy is restricted to approved HTTPS Pinterest image hosts
 
 ---
 
@@ -84,11 +86,12 @@ size: 16:9
 - A blank saved location does not force recommendation autofill
 - Users can search a city list or use coordinates directly
 - Saved recommendations store the recommendation context, not just an outfit id
+- Listings can be updated or removed, and deleting a listing releases the item back to available
 
 ---
 
 # Evaluation and Limitations
-- Verified through runnable builds and end-to-end user flows
+- Verified through runnable builds, automated tests, and end-to-end user flows
 - Recommendation quality is explainable rather than benchmark-driven
 - Main challenge: timezone correctness and external data reliability
 - Limitation: trend sentiment is still heuristic

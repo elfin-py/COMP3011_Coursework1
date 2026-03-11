@@ -65,14 +65,14 @@ export class TrendsService {
         },
       });
       if (!res.ok) {
-        return await this.fetchGoogleImages(query);
+        return [];
       }
       const text = await res.text();
       let json: any;
       try {
         json = JSON.parse(text);
       } catch {
-        return await this.fetchGoogleImages(query);
+        return [];
       }
       const results = json?.resource_response?.data?.results ?? [];
       const images = results
@@ -82,10 +82,9 @@ export class TrendsService {
       if (unique.length) {
         return unique.map((url) => ({ url, source: 'pinterest', query }));
       }
-      // fallback to google images if pinterest empty
-      return await this.fetchGoogleImages(query);
+      return [];
     } catch {
-      return await this.fetchGoogleImages(query);
+      return [];
     }
   }
 

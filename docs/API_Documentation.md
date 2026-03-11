@@ -1,12 +1,16 @@
 # Style Forecast API Documentation
 
-Base URL: `http://localhost:3000/api`
+Base URL: `http://localhost:3001/api`
 
-Interactive docs: `http://localhost:3000/docs`
+Interactive docs: `http://localhost:3001/docs`
 
 ## Authentication
 
 JWT bearer token is required for protected endpoints.
+
+Environment note:
+- `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` must be set for the API to start.
+- There are no built-in fallback secrets in the submitted configuration.
 
 1. Register: `POST /auth/register`
 2. Login: `POST /auth/login`
@@ -22,7 +26,7 @@ Common responses:
 - `400 Bad Request`: validation error, malformed input, bad query params
 - `401 Unauthorized`: missing/invalid JWT, invalid credentials
 - `404 Not Found`: requested record does not exist
-- `409 Conflict`: duplicate email on registration
+- `409 Conflict`: duplicate username on registration
 - `500 Internal Server Error`: unexpected server error
 
 Validation errors are NestJS standard payloads:
@@ -30,7 +34,7 @@ Validation errors are NestJS standard payloads:
 ```json
 {
   "statusCode": 400,
-  "message": ["email must be an email"],
+  "message": ["username must be 3-24 characters and contain only letters, numbers, or underscores"],
   "error": "Bad Request"
 }
 ```
@@ -58,8 +62,8 @@ Creates a user account.
 Request body:
 ```json
 {
-  "email": "student@example.com",
-  "password": "password123",
+  "username": "styleuser",
+  "password": "Password1",
   "cityLat": 53.8008,
   "cityLon": -1.5491
 }
@@ -70,7 +74,7 @@ Response `201`:
 {
   "user": {
     "id": "uuid",
-    "email": "student@example.com",
+    "username": "styleuser",
     "role": "USER",
     "createdAt": "2026-03-05T12:00:00.000Z",
     "updatedAt": "2026-03-05T12:00:00.000Z"
@@ -88,8 +92,20 @@ Authenticates user.
 Request body:
 ```json
 {
-  "email": "student@example.com",
-  "password": "password123"
+  "username": "styleuser",
+  "password": "Password1"
+}
+```
+
+Response `201`: same shape as register.
+
+#### `POST /auth/refresh`
+Refreshes the access token using a refresh token.
+
+Request body:
+```json
+{
+  "refreshToken": "jwt"
 }
 ```
 
@@ -104,10 +120,7 @@ Response `200`:
 ```json
 {
   "homeLocation": "Leeds",
-  "timezone": "Europe/London",
-  "dailyDigestEnabled": false,
-  "dailyDigestHour": 7,
-  "emailDigestEnabled": false
+  "timezone": "Europe/London"
 }
 ```
 
@@ -118,14 +131,29 @@ Request body (all optional):
 ```json
 {
   "homeLocation": "London",
-  "timezone": "Europe/London",
-  "dailyDigestEnabled": true,
-  "dailyDigestHour": 8,
-  "emailDigestEnabled": true
+  "timezone": "Europe/London"
 }
 ```
 
 Response `200`: updated settings object.
+
+#### `POST /users/me/change-password` (Protected)
+Changes the authenticated user's password.
+
+Request body:
+```json
+{
+  "currentPassword": "Password1",
+  "newPassword": "BetterPass2"
+}
+```
+
+Response `201`:
+```json
+{
+  "message": "Password updated"
+}
+```
 
 ### Items
 
@@ -186,6 +214,34 @@ Returns public listings.
 
 #### `GET /listings/{id}`
 Returns listing with relations.
+
+#### `PATCH /listings/{id}` (Protected)
+Updates listing metadata for a listing owned by the authenticated user.
+
+Request body (all optional except `itemId`, which cannot be changed if supplied):
+```json
+{
+  "intent": "SWAP",
+  "availabilityStart": "2026-03-10T09:00:00.000Z",
+  "availabilityEnd": "2026-03-24T18:00:00.000Z",
+  "rentalTerms": {
+    "deposit": 15
+  }
+}
+```
+
+Response `200`: updated listing with linked item.
+
+#### `DELETE /listings/{id}` (Protected)
+Deletes a listing owned by the authenticated user and returns the linked item to `AVAILABLE`.
+
+Response `200`:
+```json
+{
+  "deleted": true,
+  "id": "uuid"
+}
+```
 
 #### `POST /listings/{id}/match`
 Generates match scores for listing.
@@ -267,6 +323,31 @@ Request body:
 #### `GET /outfits` (Protected)
 Returns authenticated user's outfits.
 
+#### `GET /outfits/saved` (Protected)
+Returns the authenticated user's saved recommendations.
+
+#### `POST /outfits/saved/toggle` (Protected)
+Saves or unsaves a recommendation snapshot.
+
+Request body:
+```json
+{
+  "outfitId": "uuid",
+  "outfitName": "Commute Rain Fit",
+  "location": "Leeds",
+  "recommendedFor": "2026-03-20T09:00:00.000Z",
+  "weatherSummary": {
+    "temperatureC": 8.2,
+    "conditions": "live forecast"
+  },
+  "outfitSnapshot": {
+    "styleTags": ["practical", "casual"],
+    "itemNames": ["puffer", "skirt"]
+  },
+  "imageUrls": ["https://i.pinimg.com/...jpg"]
+}
+```
+
 #### `POST /outfits/{id}/usage` (Protected)
 Logs usage event and records climate context.
 
@@ -281,7 +362,7 @@ Request body:
 ### Recommendations
 
 #### `GET /recommendations/outfit?location=Leeds&datetime=2026-03-20T09:00`
-Returns highest-scoring outfit.
+Returns the highest-scoring outfit. The route is public, but if a valid bearer token is provided the service can also apply per-user feedback history.
 
 Response `200`:
 ```json
@@ -340,7 +421,7 @@ Returns Pinterest image URLs:
 Returns Google image URLs.
 
 #### `GET /trends/pinterest/proxy?url=https://...jpg`
-Image proxy endpoint for Pinterest assets.
+Image proxy endpoint for Pinterest assets. Only HTTPS Pinterest image hosts are accepted.
 
 ### Feedback
 
