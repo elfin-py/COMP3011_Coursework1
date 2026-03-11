@@ -56,7 +56,6 @@ let UsersService = class UsersService {
         return this.prisma.user.create({
             data: {
                 username: dto.username,
-                email: dto.email,
                 passwordHash: dto.passwordHash,
                 role: client_1.Role.USER,
                 profile: {
@@ -72,9 +71,6 @@ let UsersService = class UsersService {
             },
             include: { profile: true },
         });
-    }
-    findByEmail(email) {
-        return this.prisma.user.findUnique({ where: { email } });
     }
     findByUsername(username) {
         return this.prisma.user.findUnique({ where: { username } });

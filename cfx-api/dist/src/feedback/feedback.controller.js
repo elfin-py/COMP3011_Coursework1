@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FeedbackController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const feedback_service_1 = require("./feedback.service");
@@ -23,6 +24,21 @@ class FeedbackDto {
     rating;
     note;
 }
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], FeedbackDto.prototype, "targetId", void 0);
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(5),
+    __metadata("design:type", Number)
+], FeedbackDto.prototype, "rating", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], FeedbackDto.prototype, "note", void 0);
 let FeedbackController = class FeedbackController {
     feedbackService;
     constructor(feedbackService) {

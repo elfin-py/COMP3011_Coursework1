@@ -3,6 +3,7 @@ import type { Response } from 'express';
 export declare class TrendsController {
     private readonly trendsService;
     constructor(trendsService: TrendsService);
+    private static readonly ALLOWED_PROXY_HOSTS;
     top(platform?: string, limit?: number): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
         capturedAt: Date;

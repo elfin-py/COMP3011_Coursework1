@@ -47,6 +47,7 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
+const auth_config_1 = require("../common/config/auth-config");
 const users_service_1 = require("../users/users.service");
 let AuthService = class AuthService {
     usersService;
@@ -56,14 +57,7 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async register(dto) {
-        const email = dto.email?.trim().toLowerCase() || `${dto.username.toLowerCase()}@styleforecast.local`;
-        const [existingEmail, existingUsername] = await Promise.all([
-            this.usersService.findByEmail(email),
-            this.usersService.findByUsername(dto.username),
-        ]);
-        if (existingEmail) {
-            throw new common_1.ConflictException('Email already in use');
-        }
+        const existingUsername = await this.usersService.findByUsername(dto.username);
         if (existingUsername) {
             throw new common_1.ConflictException('Username already in use');
         }
@@ -73,7 +67,6 @@ let AuthService = class AuthService {
         try {
             user = await this.usersService.create({
                 username: dto.username,
-                email,
                 passwordHash,
                 cityLat: dto.cityLat ?? 53.8008,
                 cityLon: dto.cityLon ?? -1.5491,
@@ -81,11 +74,11 @@ let AuthService = class AuthService {
         }
         catch (e) {
             if (e instanceof client_1.Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-                throw new common_1.ConflictException('Email or username already in use');
+                throw new common_1.ConflictException('Username already in use');
             }
             throw e;
         }
-        const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
+        const tokens = this.issueTokens(user.id, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
     async validateUser(username, password) {
@@ -101,14 +94,14 @@ let AuthService = class AuthService {
         const user = await this.validateUser(username, password);
         if (!user)
             throw new common_1.UnauthorizedException('Invalid credentials');
-        const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
+        const tokens = this.issueTokens(user.id, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
     async refresh(refreshToken) {
         let payload;
         try {
             payload = this.jwtService.verify(refreshToken, {
-                secret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+                secret: (0, auth_config_1.requiredEnv)('JWT_REFRESH_SECRET'),
             });
         }
         catch {
@@ -118,17 +111,17 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
-        const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
+        const tokens = this.issueTokens(user.id, user.username, user.role);
         return { user: this.sanitizeUser(user), tokens };
     }
-    issueTokens(id, email, username, role) {
-        const payload = { sub: id, email, username, role };
+    issueTokens(id, username, role) {
+        const payload = { sub: id, username, role };
         const accessToken = this.jwtService.sign(payload, {
-            secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+            secret: (0, auth_config_1.requiredEnv)('JWT_ACCESS_SECRET'),
             expiresIn: process.env.JWT_ACCESS_EXPIRES || '900s',
         });
         const refreshToken = this.jwtService.sign(payload, {
-            secret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+            secret: (0, auth_config_1.requiredEnv)('JWT_REFRESH_SECRET'),
             expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d',
         });
         return { accessToken, refreshToken };

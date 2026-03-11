@@ -10,6 +10,7 @@ exports.ChatModule = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const climate_module_1 = require("../climate/climate.module");
+const auth_config_1 = require("../common/config/auth-config");
 const recommendation_module_1 = require("../recommendation/recommendation.module");
 const chat_controller_1 = require("./chat.controller");
 const chat_service_1 = require("./chat.service");
@@ -22,7 +23,7 @@ exports.ChatModule = ChatModule = __decorate([
             climate_module_1.ClimateModule,
             recommendation_module_1.RecommendationModule,
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+                secret: (0, auth_config_1.requiredEnv)('JWT_ACCESS_SECRET'),
             }),
         ],
         controllers: [chat_controller_1.ChatController],

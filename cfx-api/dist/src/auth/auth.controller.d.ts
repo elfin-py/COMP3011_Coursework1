@@ -15,7 +15,6 @@ export declare class AuthController {
     login(dto: LoginDto): Promise<{
         user: Omit<{
             id: string;
-            email: string;
             passwordHash: string;
             role: import("@prisma/client").$Enums.Role;
             createdAt: Date;
@@ -30,7 +29,6 @@ export declare class AuthController {
     refresh(dto: RefreshDto): Promise<{
         user: Omit<{
             id: string;
-            email: string;
             passwordHash: string;
             role: import("@prisma/client").$Enums.Role;
             createdAt: Date;

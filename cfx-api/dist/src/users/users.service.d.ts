@@ -15,34 +15,17 @@ export declare class UsersService {
             cityLon: number;
             homeLocation: string;
             timezone: string;
-            dailyDigestEnabled: boolean;
-            dailyDigestHour: number;
-            dailyDigestMinute: number;
-            emailDigestEnabled: boolean;
-            digestEmail: string | null;
-            lastDigestSentAt: Date | null;
         } | null;
     } & {
         id: string;
-        email: string;
         passwordHash: string;
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
         updatedAt: Date;
         username: string;
     }>;
-    findByEmail(email: string): import("@prisma/client").Prisma.Prisma__UserClient<{
-        id: string;
-        email: string;
-        passwordHash: string;
-        role: import("@prisma/client").$Enums.Role;
-        createdAt: Date;
-        updatedAt: Date;
-        username: string;
-    } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findByUsername(username: string): import("@prisma/client").Prisma.Prisma__UserClient<{
         id: string;
-        email: string;
         passwordHash: string;
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
@@ -51,7 +34,6 @@ export declare class UsersService {
     } | null, null, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findById(id: string): import("@prisma/client").Prisma.Prisma__UserClient<{
         id: string;
-        email: string;
         passwordHash: string;
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;

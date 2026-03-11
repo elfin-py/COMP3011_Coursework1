@@ -10,6 +10,7 @@ exports.AuthModule = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const passport_1 = require("@nestjs/passport");
+const auth_config_1 = require("../common/config/auth-config");
 const users_module_1 = require("../users/users.module");
 const auth_service_1 = require("./auth.service");
 const auth_controller_1 = require("./auth.controller");
@@ -23,7 +24,7 @@ exports.AuthModule = AuthModule = __decorate([
             users_module_1.UsersModule,
             passport_1.PassportModule,
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+                secret: (0, auth_config_1.requiredEnv)('JWT_ACCESS_SECRET'),
                 signOptions: {
                     expiresIn: process.env.JWT_ACCESS_EXPIRES || '900s',
                 },

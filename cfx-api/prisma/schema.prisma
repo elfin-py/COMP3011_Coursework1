@@ -47,7 +47,6 @@ enum TargetType {
 model User {
   id           String    @id @default(uuid())
   username     String    @unique
-  email        String    @unique
   passwordHash String
   role         Role      @default(USER)
   createdAt    DateTime  @default(now())
