@@ -13,7 +13,6 @@ async function main() {
     const users = await prisma.$transaction(Array.from({ length: 5 }).map((_, i) => prisma.user.create({
         data: {
             username: `user${i + 1}`,
-            email: `user${i + 1}@example.com`,
             passwordHash: 'seed-hash',
             profile: {
                 create: {

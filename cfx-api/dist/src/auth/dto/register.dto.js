@@ -13,7 +13,6 @@ exports.RegisterDto = void 0;
 const class_validator_1 = require("class-validator");
 class RegisterDto {
     username;
-    email;
     password;
     cityLat;
     cityLon;
@@ -25,11 +24,6 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "username", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEmail)(),
-    __metadata("design:type", String)
-], RegisterDto.prototype, "email", void 0);
 __decorate([
     (0, class_validator_1.Matches)(/^(?=.*[A-Z])(?=.*\d).{7,}$/, {
         message: 'password must be at least 7 characters and include 1 capital letter and 1 number',

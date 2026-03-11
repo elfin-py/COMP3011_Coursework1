@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecommendationController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const optional_jwt_auth_guard_1 = require("../common/guards/optional-jwt-auth.guard");
 const recommendation_service_1 = require("./recommendation.service");
 let RecommendationController = class RecommendationController {
     service;
@@ -28,6 +29,7 @@ let RecommendationController = class RecommendationController {
 };
 exports.RecommendationController = RecommendationController;
 __decorate([
+    (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),
     (0, common_1.Get)('outfit'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('location')),

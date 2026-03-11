@@ -19,7 +19,6 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         username: dto.username,
-        email: dto.email,
         passwordHash: dto.passwordHash,
         role: Role.USER,
         profile: {
@@ -35,10 +34,6 @@ export class UsersService {
       },
       include: { profile: true },
     });
-  }
-
-  findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
   }
 
   findByUsername(username: string) {

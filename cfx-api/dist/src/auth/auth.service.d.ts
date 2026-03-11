@@ -14,7 +14,6 @@ export declare class AuthService {
     }>;
     validateUser(username: string, password: string): Promise<{
         id: string;
-        email: string;
         passwordHash: string;
         role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
@@ -24,7 +23,6 @@ export declare class AuthService {
     login(username: string, password: string): Promise<{
         user: Omit<{
             id: string;
-            email: string;
             passwordHash: string;
             role: import("@prisma/client").$Enums.Role;
             createdAt: Date;
@@ -39,7 +37,6 @@ export declare class AuthService {
     refresh(refreshToken: string): Promise<{
         user: Omit<{
             id: string;
-            email: string;
             passwordHash: string;
             role: import("@prisma/client").$Enums.Role;
             createdAt: Date;

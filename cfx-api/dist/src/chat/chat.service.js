@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
+const auth_config_1 = require("../common/config/auth-config");
 const climate_service_1 = require("../climate/climate.service");
 const recommendation_service_1 = require("../recommendation/recommendation.service");
 let ChatService = ChatService_1 = class ChatService {
@@ -72,7 +73,7 @@ let ChatService = ChatService_1 = class ChatService {
             return null;
         try {
             const payload = await this.jwtService.verifyAsync(raw, {
-                secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+                secret: (0, auth_config_1.requiredEnv)('JWT_ACCESS_SECRET'),
             });
             return payload?.sub || null;
         }

@@ -48,6 +48,57 @@ let ListingsService = class ListingsService {
         });
         return listing;
     }
+    async update(ownerId, id, dto) {
+        const listing = await this.prisma.listing.findUnique({
+            where: { id },
+            include: { item: true },
+        });
+        if (!listing)
+            throw new common_1.NotFoundException('Listing not found');
+        if (listing.item.ownerId !== ownerId) {
+            throw new common_1.BadRequestException('Cannot update a listing you do not own');
+        }
+        if (dto.itemId && dto.itemId !== listing.itemId) {
+            throw new common_1.BadRequestException('Cannot change the item attached to a listing');
+        }
+        return this.prisma.listing.update({
+            where: { id },
+            data: {
+                intent: dto.intent,
+                availabilityStart: dto.availabilityStart !== undefined
+                    ? dto.availabilityStart
+                        ? new Date(dto.availabilityStart)
+                        : null
+                    : undefined,
+                availabilityEnd: dto.availabilityEnd !== undefined
+                    ? dto.availabilityEnd
+                        ? new Date(dto.availabilityEnd)
+                        : null
+                    : undefined,
+                rentalTerms: dto.rentalTerms !== undefined
+                    ? (dto.rentalTerms ?? {})
+                    : undefined,
+            },
+            include: { item: true },
+        });
+    }
+    async remove(ownerId, id) {
+        const listing = await this.prisma.listing.findUnique({
+            where: { id },
+            include: { item: true },
+        });
+        if (!listing)
+            throw new common_1.NotFoundException('Listing not found');
+        if (listing.item.ownerId !== ownerId) {
+            throw new common_1.BadRequestException('Cannot delete a listing you do not own');
+        }
+        await this.prisma.listing.delete({ where: { id } });
+        await this.prisma.item.update({
+            where: { id: listing.itemId },
+            data: { status: client_1.ItemStatus.AVAILABLE },
+        });
+        return { deleted: true, id };
+    }
     async getPublicListings() {
         return this.prisma.listing.findMany({
             include: { item: true },
