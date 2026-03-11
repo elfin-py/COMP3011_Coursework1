@@ -72,7 +72,7 @@ The client is intentionally thin: it collects user input, presents results, and 
 
 \textbf{React + Vite} was chosen for the client because the interaction model is stateful and iterative \cite{react,vite}. React supports interactive recommendation flows and authenticated UI state, while Vite keeps iteration fast.
 
-\textbf{REST over GraphQL} was also a deliberate choice. GraphQL would have been defensible for highly variable client-side queries, but this project has a relatively stable set of resources and workflows. REST made route semantics, status codes, authentication guards, and Swagger-based documentation more direct.
+\textbf{REST over GraphQL} was also a deliberate choice. GraphQL would have been defensible for highly variable client-side queries, but this project has a relatively stable set of resources and workflows. REST made route semantics, status codes, authentication guards, and Swagger-based documentation more direct \cite{openapi}.
 
 Another important design choice was to keep modules narrow in scope. For example, climate retrieval is separated from recommendation ranking, and authentication is separated from user settings and item management.
 
@@ -88,13 +88,37 @@ To satisfy the coursework requirement for database-backed CRUD, the \texttt{Item
 These operations are backed by PostgreSQL through Prisma and return conventional JSON/status-code responses.
 
 The \texttt{Item} model was the most appropriate candidate for full CRUD because it represents a stable user-owned resource with clear lifecycle operations.
+The listings subsystem was also extended to support a fuller lifecycle: listings can now be updated or deleted by their owner, and deleting a listing releases the linked item back to the \texttt{AVAILABLE} state instead of leaving it trapped in a reserved marketplace state.
 
 \subsection{Recommendation Pipeline}
-The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method, and it fits a client flow where users can search from a curated city list, enter coordinates directly, or reuse a saved home location.
+The recommendation service combines three signals. First, climate suitability measures whether an outfit is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent media-derived signals. Third, user feedback introduces a small adaptive bias so the system becomes more personalised without becoming unstable. The recommendation endpoint remains publicly usable, but it now supports optional authenticated requests so a valid JWT-bearing session can pass per-user context into scoring. I deliberately kept this model heuristic and bounded: it is easier to explain, debug, and defend than an opaque ranking method, and it fits a client flow where users can search from a curated city list, enter coordinates directly, or reuse a saved home location.
 
 This design is especially useful in the target use case. A user getting ready quickly may know that the day is ``cold'' or ``rainy'', but not whether the weather will change by the time they leave. By consolidating these signals into one recommendation, the system reduces fragmented decision-making and supports comfort and self-presentation.
 
 The recommendation flow is therefore also an information-fusion problem. Weather APIs supply environmental context, trend processing adds cultural context, and user history contributes personal context. Open-Meteo was particularly useful because it offers forecast and geocoding support through a lightweight interface \cite{openmeteo}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=5mm and 6mm,
+  every node/.style={font=\footnotesize},
+  box/.style={draw, rounded corners, align=center, text width=0.2\linewidth, minimum height=0.7cm, inner sep=3pt},
+  wide/.style={draw, rounded corners, align=center, text width=0.24\linewidth, minimum height=0.7cm, inner sep=3pt},
+  arr/.style={-{Latex[length=2mm]}, thick}
+]
+\node[box] (weather) {Weather context};
+\node[box, right=of weather] (trend) {Trend signals};
+\node[box, right=of trend] (user) {User history};
+\node[wide, below=of trend] (score) {Scoring and ranking};
+\node[wide, below=of score] (output) {Recommendation + explanation};
+\draw[arr] (weather) -- (score);
+\draw[arr] (trend) -- (score);
+\draw[arr] (user) -- (score);
+\draw[arr] (score) -- (output);
+\end{tikzpicture}
+\caption{Recommendation data flow.}
+\label{fig:recflow}
+\end{figure}
 
 \subsection{Data Flow Through the System}
 The operational flow begins when the user authenticates and sends wardrobe data or a recommendation request. The client sends structured JSON payloads to the API, where validation and access checks run before business logic. A saved account location can prefill the recommendation form, while blank settings intentionally do not force an autofill. The recommendation service then combines internal state from PostgreSQL with external weather and trend context. After scoring candidate outfits, the API returns a JSON response containing the selected result, and logged-in users can store that recommendation with its weather, place, and time for later review.
@@ -102,13 +126,15 @@ The operational flow begins when the user authenticates and sends wardrobe data 
 \subsection{Security Decisions}
 Security was addressed at multiple layers.
 
-\textbf{Authentication.} The API uses JWT-based authentication with guarded routes. This provides a simple stateless security model for a coursework API and allows protected ownership checks without server-side session storage. The account area also supports authenticated password change with current-password verification before a new bcrypt hash is stored.
+\textbf{Authentication.} The API uses JWT-based authentication with guarded routes. This provides a simple stateless security model for a coursework API and allows protected ownership checks without server-side session storage \cite{jwt}. The account area also supports authenticated password change with current-password verification before a new bcrypt hash is stored. JWT secrets are treated as required environment configuration rather than silently falling back to hard-coded defaults.
 
 \textbf{Authorisation.} Ownership checks were added to CRUD operations and saved recommendations so a user can only read, update, or delete their own records. This prevents horizontal privilege issues and ensures the API does not expose another user's wardrobe data.
 
 \textbf{Validation.} DTO validation is enforced in NestJS using class-validator and a global validation pipe. This helps prevent malformed payloads from entering business logic or the database layer, including password-policy enforcement and structured validation of saved account location input.
 
 \textbf{Secret handling.} Environment files are excluded from version control, and previously tracked \texttt{.env} data was removed from Git history. This is important because leaked API keys invalidate any claim of basic operational security.
+
+\textbf{Proxy policy.} The image proxy used for Pinterest inspiration was tightened so it only accepts HTTPS requests to approved Pinterest image hosts, applies a timeout, and verifies that the upstream response is an image. This reduces the risk of turning a convenience proxy into a general server-side fetch endpoint.
 
 \textbf{Database safety.} Prisma reduces query-construction mistakes by using typed queries rather than manual string assembly, lowering the risk of common implementation errors.
 
@@ -121,11 +147,12 @@ Security was addressed at multiple layers.
 The system is useful because it reduces cognitive load during a time-constrained daily task. Users may know the current weather in general terms but still miss details such as rain probability, wind, or conditions at a later time of day. They may also have only vague awareness of recent fashion trends. Style Forecast aggregates those signals and turns them into a single actionable suggestion, reducing both uncertainty and decision fatigue.
 
 \subsection{Testing and Validation}
-Evaluation was carried out in three ways:
+Evaluation was carried out in four ways:
 \begin{enumerate}
   \item backend and frontend production builds to confirm deployable integrity,
   \item endpoint validation through Swagger and direct HTTP requests,
-  \item end-to-end flow checks across authentication, item creation, recommendation, saving, and feedback.
+  \item automated unit tests for recommendation and account logic,
+  \item end-to-end flow checks across authentication, item creation, listing lifecycle, recommendation, saving, and feedback.
 \end{enumerate}
 
 This evaluation strategy reflects how the system is actually consumed. A successful build confirms structural integrity, but the more important question is whether a realistic user flow behaves correctly from login through to recommendation output.
@@ -151,10 +178,10 @@ Style Forecast was designed to bridge a genuine everyday knowledge gap: what to 
 Generative AI tools were used selectively for ideation and drafting assistance. Final design choices and report wording were reviewed and finalised by me.
 
 \begingroup
-\fontsize{8}{8.6}\selectfont
-\setlength{\itemsep}{-2pt}
+\footnotesize
+\setlength{\itemsep}{0pt}
 \setlength{\parskip}{0pt}
-\setlength{\topsep}{0pt}
+\setlength{\topsep}{2pt}
 \setlength{\partopsep}{0pt}
 \setlength{\parsep}{0pt}
 \raggedright
@@ -163,9 +190,11 @@ Generative AI tools were used selectively for ideation and drafting assistance. 
 \bibitem{nestjs} NestJS. \emph{NestJS Docs}. \url{https://docs.nestjs.com/}.
 \bibitem{prisma} Prisma. \emph{Prisma ORM Docs}. \url{https://www.prisma.io/docs}.
 \bibitem{postgresql} PostgreSQL Global Development Group. \emph{PostgreSQL Docs}. \url{https://www.postgresql.org/docs/}.
+\bibitem{openapi} OpenAPI Initiative. \emph{OpenAPI Specification}. \url{https://spec.openapis.org/oas/latest.html}.
 \bibitem{react} Meta. \emph{React Docs}. \url{https://react.dev/}.
 \bibitem{vite} Vite. \emph{Vite Guide}. \url{https://vite.dev/guide/}.
 \bibitem{openmeteo} Open-Meteo. \emph{Weather Forecast API Docs}. \url{https://open-meteo.com/en/docs}.
+\bibitem{jwt} Jones, Bradley, and Sakimura. \emph{RFC 7519: JSON Web Token (JWT)}. \url{https://www.rfc-editor.org/rfc/rfc7519}.
 \end{thebibliography}
 \endgroup
 

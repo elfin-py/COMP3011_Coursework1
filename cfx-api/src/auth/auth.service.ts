@@ -2,6 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { requiredEnv } from '../common/config/auth-config';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 
@@ -13,14 +14,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const email = dto.email?.trim().toLowerCase() || `${dto.username.toLowerCase()}@styleforecast.local`;
-    const [existingEmail, existingUsername] = await Promise.all([
-      this.usersService.findByEmail(email),
-      this.usersService.findByUsername(dto.username),
-    ]);
-    if (existingEmail) {
-      throw new ConflictException('Email already in use');
-    }
+    const existingUsername = await this.usersService.findByUsername(dto.username);
     if (existingUsername) {
       throw new ConflictException('Username already in use');
     }
@@ -30,18 +24,17 @@ export class AuthService {
     try {
       user = await this.usersService.create({
         username: dto.username,
-        email,
         passwordHash,
         cityLat: dto.cityLat ?? 53.8008,
         cityLon: dto.cityLon ?? -1.5491,
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('Email or username already in use');
+        throw new ConflictException('Username already in use');
       }
       throw e;
     }
-    const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
+    const tokens = this.issueTokens(user.id, user.username, user.role);
     return { user: this.sanitizeUser(user), tokens };
   }
 
@@ -56,15 +49,15 @@ export class AuthService {
   async login(username: string, password: string) {
     const user = await this.validateUser(username, password);
     if (!user) throw new UnauthorizedException('Invalid credentials');
-    const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
+    const tokens = this.issueTokens(user.id, user.username, user.role);
     return { user: this.sanitizeUser(user), tokens };
   }
 
   async refresh(refreshToken: string) {
-    let payload: { sub: string; email: string; username?: string; role: string };
+    let payload: { sub: string; username?: string; role: string };
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+        secret: requiredEnv('JWT_REFRESH_SECRET'),
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
@@ -75,19 +68,19 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const tokens = this.issueTokens(user.id, user.email, user.username, user.role);
+    const tokens = this.issueTokens(user.id, user.username, user.role);
     return { user: this.sanitizeUser(user), tokens };
   }
 
-  private issueTokens(id: string, email: string, username: string, role: string) {
-    const payload = { sub: id, email, username, role };
+  private issueTokens(id: string, username: string, role: string) {
+    const payload = { sub: id, username, role };
     const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
+      secret: requiredEnv('JWT_ACCESS_SECRET'),
       // allow ms-style strings like '900s'
       expiresIn: (process.env.JWT_ACCESS_EXPIRES as any) || '900s',
     });
     const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+      secret: requiredEnv('JWT_REFRESH_SECRET'),
       expiresIn: (process.env.JWT_REFRESH_EXPIRES as any) || '7d',
     });
     return { accessToken, refreshToken };

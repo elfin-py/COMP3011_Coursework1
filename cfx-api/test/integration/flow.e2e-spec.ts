@@ -1,7 +1,11 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
+import request from 'supertest';
+
+process.env.JWT_ACCESS_SECRET ??= 'test-access-secret';
+process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret';
+
+const { AppModule } = require('../../src/app.module');
 
 describe('Happy path flow (e2e)', () => {
   let app: INestApplication;
@@ -16,6 +20,7 @@ describe('Happy path flow (e2e)', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
     );
@@ -27,18 +32,17 @@ describe('Happy path flow (e2e)', () => {
   });
 
   it('registers and logs in', async () => {
-    const email = `test${Date.now()}@example.com`;
     const username = `testuser${Date.now()}`;
     const password = 'Password1';
 
     await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send({ username, email, password, cityLat: 53.8, cityLon: -1.55 })
+      .send({ username, password, cityLat: 53.8, cityLon: -1.55 })
       .expect(201);
 
     const login = await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ identifier: username, password })
+      .send({ username, password })
       .expect(201);
 
     token = login.body.tokens.accessToken;
@@ -76,6 +80,28 @@ describe('Happy path flow (e2e)', () => {
       .expect(201);
 
     expect(Array.isArray(matches.body)).toBeTruthy();
+  });
+
+  it('updates and deletes a listing, releasing the item back to available', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/listings/${listingId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        availabilityEnd: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .delete(`/api/listings/${listingId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const item = await request(app.getHttpServer())
+      .get(`/api/items/${itemId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(item.body.status).toBe('AVAILABLE');
   });
 
   it('creates climate snapshot and gets recommendation', async () => {

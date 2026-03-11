@@ -6,6 +6,7 @@ import {
 import { Prisma, ItemStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateListingDto } from './dto/create-listing.dto';
+import { UpdateListingDto } from './dto/update-listing.dto';
 
 @Injectable()
 export class ListingsService {
@@ -42,6 +43,63 @@ export class ListingsService {
     });
 
     return listing;
+  }
+
+  async update(ownerId: string, id: string, dto: UpdateListingDto) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id },
+      include: { item: true },
+    });
+    if (!listing) throw new NotFoundException('Listing not found');
+    if (listing.item.ownerId !== ownerId) {
+      throw new BadRequestException('Cannot update a listing you do not own');
+    }
+    if (dto.itemId && dto.itemId !== listing.itemId) {
+      throw new BadRequestException('Cannot change the item attached to a listing');
+    }
+
+    return this.prisma.listing.update({
+      where: { id },
+      data: {
+        intent: dto.intent,
+        availabilityStart:
+          dto.availabilityStart !== undefined
+            ? dto.availabilityStart
+              ? new Date(dto.availabilityStart)
+              : null
+            : undefined,
+        availabilityEnd:
+          dto.availabilityEnd !== undefined
+            ? dto.availabilityEnd
+              ? new Date(dto.availabilityEnd)
+              : null
+            : undefined,
+        rentalTerms:
+          dto.rentalTerms !== undefined
+            ? ((dto.rentalTerms ?? {}) as Prisma.InputJsonValue)
+            : undefined,
+      },
+      include: { item: true },
+    });
+  }
+
+  async remove(ownerId: string, id: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id },
+      include: { item: true },
+    });
+    if (!listing) throw new NotFoundException('Listing not found');
+    if (listing.item.ownerId !== ownerId) {
+      throw new BadRequestException('Cannot delete a listing you do not own');
+    }
+
+    await this.prisma.listing.delete({ where: { id } });
+    await this.prisma.item.update({
+      where: { id: listing.itemId },
+      data: { status: ItemStatus.AVAILABLE },
+    });
+
+    return { deleted: true, id };
   }
 
   async getPublicListings() {
