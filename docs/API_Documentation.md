@@ -1,8 +1,8 @@
 # Style Forecast API Documentation
 
-Base URL: `http://localhost:3001/api`
+Base URL: `http://localhost:3000/api`
 
-Interactive docs: `http://localhost:3001/docs`
+Interactive docs: `http://localhost:3000/docs`
 
 ## Authentication
 
@@ -40,6 +40,15 @@ Validation errors are NestJS standard payloads:
 ```
 
 ## Endpoint Reference
+
+## Core Submission Narrative
+
+The final submission is centred on one main workflow:
+1. resolve climate context for a chosen location and time,
+2. rank stored outfits using explainable weather and trend signals,
+3. let authenticated users save results and feed back into future scoring.
+
+`Items`, `outfits`, `saved recommendations`, `feedback`, and `climate snapshots` are the main assessed persistence components. Marketplace and sustainability endpoints remain documented because they are implemented, but they are secondary extensions rather than the central story of the project.
 
 ### Health
 
@@ -157,8 +166,10 @@ Response `201`:
 
 ### Items
 
+The `Item` resource provides the assessed database-backed CRUD surface and supports stored outfit composition for recommendations.
+
 #### `POST /items` (Protected)
-Creates wardrobe item.
+Creates an item resource.
 
 Request body:
 ```json
@@ -308,7 +319,7 @@ Returns local timezone and local datetime string.
 ### Outfits
 
 #### `POST /outfits` (Protected)
-Creates outfit from existing item IDs.
+Creates an outfit from existing item IDs so it can be scored, logged, and saved in recommendations.
 
 Request body:
 ```json
@@ -360,6 +371,8 @@ Request body:
 ```
 
 ### Recommendations
+
+This is the main user-facing workflow in the submitted system.
 
 #### `GET /recommendations/outfit?location=Leeds&datetime=2026-03-20T09:00`
 Returns the highest-scoring outfit. The route is public, but if a valid bearer token is provided the service can also apply per-user feedback history.

@@ -114,7 +114,8 @@ export class ClimateService {
       hour: '2-digit',
       minute: '2-digit',
     }).formatToParts(guessDate);
-    const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+    const get = (type: string) =>
+      parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
     const wallMins = get('hour') * 60 + get('minute');
     const targetWallMins = (hh || 0) * 60 + (mm || 0);
     const offsetMins = targetWallMins - wallMins;
@@ -122,7 +123,9 @@ export class ClimateService {
   }
 
   private async geocode(location: string) {
-    const coordMatch = location.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    const coordMatch = location
+      .trim()
+      .match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
     if (coordMatch) {
       const lat = Number(coordMatch[1]);
       const lon = Number(coordMatch[2]);
@@ -135,7 +138,11 @@ export class ClimateService {
     const data: any = await res.json();
     if (data?.results?.length) {
       const first = data.results[0];
-      return { lat: first.latitude, lon: first.longitude, timezone: first.timezone };
+      return {
+        lat: first.latitude,
+        lon: first.longitude,
+        timezone: first.timezone,
+      };
     }
     return null;
   }
@@ -170,7 +177,8 @@ export class ClimateService {
       hour: '2-digit',
       minute: '2-digit',
     }).formatToParts(new Date());
-    const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+    const get = (type: string) =>
+      parts.find((p) => p.type === type)?.value || '00';
     return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
   }
 
@@ -183,7 +191,11 @@ export class ClimateService {
     };
   }
 
-  private async fetchLiveWeather(location: string, datetime?: string, tz?: string) {
+  private async fetchLiveWeather(
+    location: string,
+    datetime?: string,
+    tz?: string,
+  ) {
     const meta = await this.resolveLocationMeta(location);
     if (!meta) return null;
     const zone = meta.timezone || tz || 'auto';
@@ -251,7 +263,9 @@ export class ClimateService {
       data: {
         location: dto.location,
         capturedAt: new Date(dto.capturedAt),
-        validFor: dto.validFor ? new Date(dto.validFor) : new Date(dto.capturedAt),
+        validFor: dto.validFor
+          ? new Date(dto.validFor)
+          : new Date(dto.capturedAt),
         temperatureC: dto.temperatureC,
         humidity: dto.humidity,
         windKph: dto.windKph,
@@ -279,13 +293,21 @@ export class ClimateService {
           where: { location, validFor: { gte: target } },
           orderBy: [{ validFor: 'asc' }, { capturedAt: 'desc' }],
         });
-        if (next?.validFor && Math.abs(new Date(next.validFor).getTime() - target.getTime()) < 3 * 60 * 60 * 1000)
+        if (
+          next?.validFor &&
+          Math.abs(new Date(next.validFor).getTime() - target.getTime()) <
+            3 * 60 * 60 * 1000
+        )
           return next;
         const prev = await this.prisma.climateSnapshot.findFirst({
           where: { location, validFor: { lte: target } },
           orderBy: [{ validFor: 'desc' }, { capturedAt: 'desc' }],
         });
-        if (prev?.validFor && Math.abs(new Date(prev.validFor).getTime() - target.getTime()) < 3 * 60 * 60 * 1000)
+        if (
+          prev?.validFor &&
+          Math.abs(new Date(prev.validFor).getTime() - target.getTime()) <
+            3 * 60 * 60 * 1000
+        )
           return prev;
         const live = await this.fetchLiveWeather(location, datetime, zone);
         if (live) {

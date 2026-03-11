@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -14,7 +18,9 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existingUsername = await this.usersService.findByUsername(dto.username);
+    const existingUsername = await this.usersService.findByUsername(
+      dto.username,
+    );
     if (existingUsername) {
       throw new ConflictException('Username already in use');
     }
@@ -29,7 +35,10 @@ export class AuthService {
         cityLon: dto.cityLon ?? -1.5491,
       });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
         throw new ConflictException('Username already in use');
       }
       throw e;

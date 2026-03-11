@@ -53,7 +53,9 @@ export class UsersService {
       throw new UnauthorizedException('Current password is incorrect');
     }
     if (dto.currentPassword === dto.newPassword) {
-      throw new BadRequestException('New password must be different from current password');
+      throw new BadRequestException(
+        'New password must be different from current password',
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);

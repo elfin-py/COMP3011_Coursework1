@@ -25,7 +25,8 @@
     "ingest:news": "ts-node scripts/fetch-news-trends.ts",
     "docs:json": "ts-node scripts/export-openapi.ts",
     "docs:pdf": "npm run docs:json && redocly build-docs docs/swagger.json -o docs/api.pdf",
-    "ci:lint-test": "npm run lint && npm test"
+    "ci:test": "npm test -- --runInBand && npm run test:e2e -- --runInBand",
+    "ci:lint-test": "npm run lint && npm run ci:test"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

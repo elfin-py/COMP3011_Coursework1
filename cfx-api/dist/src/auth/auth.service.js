@@ -73,7 +73,8 @@ let AuthService = class AuthService {
             });
         }
         catch (e) {
-            if (e instanceof client_1.Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            if (e instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+                e.code === 'P2002') {
                 throw new common_1.ConflictException('Username already in use');
             }
             throw e;

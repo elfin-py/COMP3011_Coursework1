@@ -1,4 +1,10 @@
-import { BadRequestException, Controller, Get, Query, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TrendsService } from './trends.service';
 import type { Response } from 'express';
@@ -7,6 +13,7 @@ import type { Response } from 'express';
 @Controller('trends')
 export class TrendsController {
   constructor(private readonly trendsService: TrendsService) {}
+  // Restrict proxying to Pinterest-controlled hosts rather than arbitrary URLs.
   private static readonly ALLOWED_PROXY_HOSTS = ['pinimg.com', 'pinterest.com'];
 
   @Get('top')

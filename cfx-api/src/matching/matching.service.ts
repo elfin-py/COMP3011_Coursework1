@@ -75,7 +75,10 @@ export class MatchingService {
     candidate: any,
     demandBalance: number,
   ): ScoreBreakdown {
-    const style = this.cosine(sourceItem.styleEmbedding, candidate.styleEmbedding);
+    const style = this.cosine(
+      sourceItem.styleEmbedding,
+      candidate.styleEmbedding,
+    );
     const size = this.sizePenalty(sourceItem.sizeLabel, candidate.sizeLabel);
     const condition = Math.min(candidate.condition, 5) / 5;
     const distance = this.inverseDistance(
@@ -104,7 +107,9 @@ export class MatchingService {
 
   private sizePenalty(source: string, candidate: string) {
     if (source === candidate) return 1;
-    const delta = Math.abs((source.charCodeAt(0) || 0) - (candidate.charCodeAt(0) || 0));
+    const delta = Math.abs(
+      (source.charCodeAt(0) || 0) - (candidate.charCodeAt(0) || 0),
+    );
     return Math.max(0, 1 - delta * 0.25);
   }
 
@@ -124,7 +129,12 @@ export class MatchingService {
     return dot / denom;
   }
 
-  private inverseDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  private inverseDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) {
     const d = this.haversine(lat1, lon1, lat2, lon2);
     return 1 / (1 + d); // normalize to (0,1]
   }

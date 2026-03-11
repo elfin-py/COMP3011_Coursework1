@@ -15,7 +15,7 @@ export class RecommendationController {
     @Query('location') location: string,
     @Query('datetime') datetime?: string,
   ) {
-    const userId = (req as any)?.user?.userId ?? null;
+    const userId = req?.user?.userId ?? null;
     return this.service.recommendOutfit(userId, location ?? 'Leeds', datetime);
   }
 }

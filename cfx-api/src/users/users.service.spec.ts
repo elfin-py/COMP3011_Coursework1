@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 
@@ -94,6 +98,8 @@ describe('UsersService', () => {
   it('throws when profile settings are missing', async () => {
     prisma.profile.findUnique.mockResolvedValue(null);
 
-    await expect(service.getSettings('user-1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getSettings('user-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

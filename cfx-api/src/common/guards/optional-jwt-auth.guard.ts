@@ -17,6 +17,8 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
     if (err) {
       return null as TUser;
     }
+    // The recommendation route stays public, but authenticated callers can still
+    // contribute user context when they send a valid bearer token.
     return (user ?? null) as TUser;
   }
 }

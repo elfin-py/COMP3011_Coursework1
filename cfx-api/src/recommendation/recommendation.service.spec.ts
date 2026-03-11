@@ -82,11 +82,87 @@ describe('RecommendationService', () => {
       },
     ]);
 
-    const result = await service.recommendOutfit('user-1', 'Leeds', '2026-03-10T09:00');
+    const result = await service.recommendOutfit(
+      'user-1',
+      'Leeds',
+      '2026-03-10T09:00',
+    );
 
     expect(result.outfit.id).toBe('outfit-1');
     expect(result.score.total).toBeGreaterThan(0);
     expect(result.score.items[0].userBoost).toBeGreaterThan(0);
+  });
+
+  it('does not apply a user boost for anonymous requests', async () => {
+    climateService.latest.mockResolvedValue({
+      id: 'climate-1',
+      temperatureC: 12,
+      precipProb: 20,
+      windKph: 5,
+    });
+    trendsService.topTagsRecent.mockResolvedValue([{ tag: 'coat', volume: 80, sentiment: 0.3 }]);
+    prisma.outfit.findMany.mockResolvedValue([
+      {
+        id: 'outfit-1',
+        name: 'Anonymous fit',
+        occasion: 'commute',
+        styleTags: ['casual'],
+        items: [
+          {
+            item: {
+              id: 'item-1',
+              insulation: 0.6,
+              waterproof: 0.5,
+              material: 'cotton coat',
+              styleTags: ['coat'],
+            },
+          },
+        ],
+      },
+    ]);
+
+    const result = await service.recommendOutfit(null, 'Leeds');
+
+    expect(feedbackService.userAverage).not.toHaveBeenCalled();
+    expect(result.score.items[0].userBoost).toBe(0);
+  });
+
+  it('falls back to general trend tags when recent news trends are unavailable', async () => {
+    climateService.latest.mockResolvedValue({
+      id: 'climate-1',
+      temperatureC: 11,
+      precipProb: 10,
+      windKph: 4,
+    });
+    feedbackService.userAverage.mockResolvedValue({ avg: null, count: 0 });
+    trendsService.topTagsRecent.mockResolvedValue([]);
+    trendsService.topTags.mockResolvedValue([
+      { tag: 'linen', volume: 200, sentiment: 0.5 },
+    ]);
+    prisma.outfit.findMany.mockResolvedValue([
+      {
+        id: 'outfit-1',
+        name: 'Fallback trend fit',
+        occasion: 'commute',
+        styleTags: ['smart'],
+        items: [
+          {
+            item: {
+              id: 'item-1',
+              insulation: 0.5,
+              waterproof: 0.4,
+              material: 'linen blend',
+              styleTags: ['smart'],
+            },
+          },
+        ],
+      },
+    ]);
+
+    const result = await service.recommendOutfit('user-1', 'Leeds');
+
+    expect(trendsService.topTags).toHaveBeenCalled();
+    expect(result.score.items[0].trendBoost).toBeGreaterThan(0);
   });
 
   it('applies custom preference boosts and penalties', async () => {
@@ -147,6 +223,20 @@ describe('RecommendationService', () => {
 
   it('throws when no climate snapshot is available', async () => {
     climateService.latest.mockResolvedValue(null);
+
+    await expect(
+      service.recommendOutfit('user-1', 'Leeds'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('throws when there are no outfits to score', async () => {
+    climateService.latest.mockResolvedValue({
+      id: 'climate-1',
+      temperatureC: 12,
+      precipProb: 0,
+      windKph: 4,
+    });
+    prisma.outfit.findMany.mockResolvedValue([]);
 
     await expect(service.recommendOutfit('user-1', 'Leeds')).rejects.toBeInstanceOf(
       NotFoundException,

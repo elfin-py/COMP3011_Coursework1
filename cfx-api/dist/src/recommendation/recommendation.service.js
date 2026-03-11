@@ -37,7 +37,9 @@ let RecommendationService = class RecommendationService {
         });
         if (outfits.length === 0)
             throw new common_1.NotFoundException('No outfits found to score');
-        const userPref = userId ? await this.feedbackService.userAverage(userId) : { avg: null, count: 0 };
+        const userPref = userId
+            ? await this.feedbackService.userAverage(userId)
+            : { avg: null, count: 0 };
         const scored = outfits.map((o) => {
             const perItemPromises = o.items.map((oi) => this.scoreItem(oi.item, climate, userPref));
             return { outfit: o, perItemPromises };
@@ -45,8 +47,13 @@ let RecommendationService = class RecommendationService {
         const resolved = await Promise.all(scored.map(async (entry) => {
             const perItem = await Promise.all(entry.perItemPromises);
             const customBoost = this.customPreferenceBoost(entry.outfit, options);
-            const total = perItem.reduce((acc, s) => acc + s.total, 0) / (perItem.length || 1) + customBoost;
-            return { outfit: entry.outfit, score: { total, items: perItem }, customBoost };
+            const total = perItem.reduce((acc, s) => acc + s.total, 0) / (perItem.length || 1) +
+                customBoost;
+            return {
+                outfit: entry.outfit,
+                score: { total, items: perItem },
+                customBoost,
+            };
         }));
         resolved.sort((a, b) => b.score.total - a.score.total);
         return resolved[0];
@@ -59,7 +66,9 @@ let RecommendationService = class RecommendationService {
         const wants = (options.styleTags || []).map((t) => t.toLowerCase());
         const avoids = (options.avoidTags || []).map((t) => t.toLowerCase());
         let boost = 0;
-        if (options.occasion && occasion && occasion.includes(options.occasion.toLowerCase())) {
+        if (options.occasion &&
+            occasion &&
+            occasion.includes(options.occasion.toLowerCase())) {
             boost += 0.08;
         }
         if (wants.length) {
@@ -87,7 +96,8 @@ let RecommendationService = class RecommendationService {
         if (precip > 20 && material.includes('suede'))
             precipPenalty += 0.5;
         let windPenalty = 0;
-        if (wind > 25 && tags.some((t) => ['skirt', 'dress'].includes(t.toLowerCase()))) {
+        if (wind > 25 &&
+            tags.some((t) => ['skirt', 'dress'].includes(t.toLowerCase()))) {
             windPenalty += 0.3;
         }
         let coldPenalty = 0;
@@ -96,7 +106,9 @@ let RecommendationService = class RecommendationService {
         }
         const trendBoost = await this.trendBoost(tags, material);
         const protection = Math.min(1, (item.waterproof ?? 0) + (material.includes('waterproof') ? 0.2 : 0));
-        const userBoost = userPref.avg && userPref.avg > 3 ? Math.min(0.1, (userPref.avg - 3) * 0.03) : 0;
+        const userBoost = userPref.avg && userPref.avg > 3
+            ? Math.min(0.1, (userPref.avg - 3) * 0.03)
+            : 0;
         const total = 0.45 * tempScore +
             0.25 * (1 - precipPenalty) +
             0.15 * (1 - windPenalty) +
@@ -117,7 +129,9 @@ let RecommendationService = class RecommendationService {
     }
     async trendBoost(tags, material) {
         const recentNews = await this.trendsService.topTagsRecent('news-rss', 120, 60);
-        const trends = recentNews.length ? recentNews : await this.trendsService.topTags('', 60);
+        const trends = recentNews.length
+            ? recentNews
+            : await this.trendsService.topTags('', 60);
         const byTag = new Map();
         for (const t of trends) {
             byTag.set(t.tag.toLowerCase(), {

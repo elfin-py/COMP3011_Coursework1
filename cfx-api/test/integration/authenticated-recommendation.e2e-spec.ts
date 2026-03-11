@@ -25,7 +25,11 @@ describe('Authenticated recommendation and account flows (e2e)', () => {
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
     );
     await app.init();
   });
@@ -100,11 +104,15 @@ describe('Authenticated recommendation and account flows (e2e)', () => {
       .expect(201);
 
     const anonymous = await request(app.getHttpServer())
-      .get(`/api/recommendations/outfit?location=${encodeURIComponent(location)}`)
+      .get(
+        `/api/recommendations/outfit?location=${encodeURIComponent(location)}`,
+      )
       .expect(200);
 
     const authenticated = await request(app.getHttpServer())
-      .get(`/api/recommendations/outfit?location=${encodeURIComponent(location)}`)
+      .get(
+        `/api/recommendations/outfit?location=${encodeURIComponent(location)}`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 

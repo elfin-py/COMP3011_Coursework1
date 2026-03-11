@@ -55,7 +55,9 @@ export class ListingsService {
       throw new BadRequestException('Cannot update a listing you do not own');
     }
     if (dto.itemId && dto.itemId !== listing.itemId) {
-      throw new BadRequestException('Cannot change the item attached to a listing');
+      throw new BadRequestException(
+        'Cannot change the item attached to a listing',
+      );
     }
 
     return this.prisma.listing.update({
@@ -94,6 +96,7 @@ export class ListingsService {
     }
 
     await this.prisma.listing.delete({ where: { id } });
+    // Release the item so it can return to normal wardrobe use or be relisted.
     await this.prisma.item.update({
       where: { id: listing.itemId },
       data: { status: ItemStatus.AVAILABLE },

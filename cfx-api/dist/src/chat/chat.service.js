@@ -35,8 +35,12 @@ let ChatService = ChatService_1 = class ChatService {
         const merged = {
             occasion: dto.occasion || extracted.occasion,
             activity: dto.activity || extracted.activity,
-            styleTags: [...new Set([...(dto.styleTags || []), ...(extracted.styleTags || [])])],
-            avoidTags: [...new Set([...(dto.avoidTags || []), ...(extracted.avoidTags || [])])],
+            styleTags: [
+                ...new Set([...(dto.styleTags || []), ...(extracted.styleTags || [])]),
+            ],
+            avoidTags: [
+                ...new Set([...(dto.avoidTags || []), ...(extracted.avoidTags || [])]),
+            ],
             preferences: extracted.preferences || [],
         };
         const result = await this.recommendationService.recommendOutfit(userId, dto.location, dto.datetime, merged);
@@ -101,13 +105,19 @@ let ChatService = ChatService_1 = class ChatService {
                 },
                 body: JSON.stringify({
                     inputs: prompt,
-                    parameters: { max_new_tokens: 200, temperature: 0.2, return_full_text: false },
+                    parameters: {
+                        max_new_tokens: 200,
+                        temperature: 0.2,
+                        return_full_text: false,
+                    },
                 }),
             });
             if (!res.ok)
                 return fallback;
             const data = await res.json();
-            const raw = Array.isArray(data) ? (data[0]?.generated_text || '') : (data?.generated_text || '');
+            const raw = Array.isArray(data)
+                ? data[0]?.generated_text || ''
+                : data?.generated_text || '';
             const jsonMatch = raw.match(/\{[\s\S]*\}/);
             if (!jsonMatch)
                 return fallback;
@@ -115,9 +125,15 @@ let ChatService = ChatService_1 = class ChatService {
             return {
                 occasion: parsed?.occasion || fallback.occasion,
                 activity: parsed?.activity || fallback.activity,
-                styleTags: Array.isArray(parsed?.styleTags) ? parsed.styleTags : fallback.styleTags,
-                avoidTags: Array.isArray(parsed?.avoidTags) ? parsed.avoidTags : fallback.avoidTags,
-                preferences: Array.isArray(parsed?.preferences) ? parsed.preferences : fallback.preferences,
+                styleTags: Array.isArray(parsed?.styleTags)
+                    ? parsed.styleTags
+                    : fallback.styleTags,
+                avoidTags: Array.isArray(parsed?.avoidTags)
+                    ? parsed.avoidTags
+                    : fallback.avoidTags,
+                preferences: Array.isArray(parsed?.preferences)
+                    ? parsed.preferences
+                    : fallback.preferences,
             };
         }
         catch (e) {
@@ -127,11 +143,32 @@ let ChatService = ChatService_1 = class ChatService {
     }
     ruleExtract(message) {
         const txt = message.toLowerCase();
-        const styles = ['casual', 'smart', 'streetwear', 'minimal', 'formal', 'sporty', 'puffer', 'denim'];
+        const styles = [
+            'casual',
+            'smart',
+            'streetwear',
+            'minimal',
+            'formal',
+            'sporty',
+            'puffer',
+            'denim',
+        ];
         const avoidables = ['suede', 'silk', 'airy', 'shorts', 'skirt'];
-        const activities = ['work', 'school', 'gym', 'party', 'run', 'hike', 'commute'];
+        const activities = [
+            'work',
+            'school',
+            'gym',
+            'party',
+            'run',
+            'hike',
+            'commute',
+        ];
         return {
-            occasion: txt.includes('formal') ? 'formal' : txt.includes('work') ? 'work' : undefined,
+            occasion: txt.includes('formal')
+                ? 'formal'
+                : txt.includes('work')
+                    ? 'work'
+                    : undefined,
             activity: activities.find((a) => txt.includes(a)),
             styleTags: styles.filter((s) => txt.includes(s)),
             avoidTags: avoidables.filter((a) => txt.includes(`no ${a}`) || txt.includes(`avoid ${a}`)),
@@ -145,8 +182,14 @@ let ChatService = ChatService_1 = class ChatService {
     buildNarrative(dto, prefs, tags, material, cleanMessage, cleanContext, weatherStyle) {
         const intentText = `${prefs.occasion || ''} ${prefs.activity || ''} ${cleanContext} ${cleanMessage}`.toLowerCase();
         const styleBits = this.styleDirection(intentText, prefs.styleTags || tags);
-        const avoidBits = prefs.avoidTags?.length ? `Skip ${prefs.avoidTags.slice(0, 2).join(' and ')}.` : '';
-        const event = prefs.occasion || prefs.activity || (/(dinner|date|party|evening)/.test(intentText) ? 'dinner plans' : 'your plans');
+        const avoidBits = prefs.avoidTags?.length
+            ? `Skip ${prefs.avoidTags.slice(0, 2).join(' and ')}.`
+            : '';
+        const event = prefs.occasion ||
+            prefs.activity ||
+            (/(dinner|date|party|evening)/.test(intentText)
+                ? 'dinner plans'
+                : 'your plans');
         const noHeels = /(no heels|without heels|don.t want heels|dont want heels)/.test(intentText);
         const wantsStilettos = /(stiletto|stilettos)/.test(intentText);
         const wantsHeels = /(heels|high heels|pumps)/.test(intentText);
@@ -229,7 +272,9 @@ let ChatService = ChatService_1 = class ChatService {
             if (!res.ok)
                 return fallback;
             const data = await res.json();
-            const raw = Array.isArray(data) ? data[0]?.generated_text : data?.generated_text;
+            const raw = Array.isArray(data)
+                ? data[0]?.generated_text
+                : data?.generated_text;
             const text = typeof raw === 'string' ? raw.trim() : '';
             if (!text)
                 return fallback;

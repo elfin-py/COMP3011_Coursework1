@@ -16,4 +16,3 @@ export class ChatController {
     return this.chatService.recommendFromChat(dto, authorization);
   }
 }
-

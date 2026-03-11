@@ -16,7 +16,10 @@ export class DonationsService {
       include: { owner: { include: { profile: true } } },
     });
     if (!item) throw new NotFoundException('Item not found');
-    if (item.status !== ItemStatus.AVAILABLE && item.status !== ItemStatus.RESERVED) {
+    if (
+      item.status !== ItemStatus.AVAILABLE &&
+      item.status !== ItemStatus.RESERVED
+    ) {
       throw new BadRequestException('Item cannot be routed in current status');
     }
 
@@ -31,7 +34,8 @@ export class DonationsService {
       const distanceScore = 1 / (1 + rec.distanceKm);
       const impactScore = rec.co2PerKg;
       const capacityScore = rec.capacityKg > 0 ? 1 : 0;
-      const total = 0.4 * impactScore + 0.3 * distanceScore + 0.3 * capacityScore;
+      const total =
+        0.4 * impactScore + 0.3 * distanceScore + 0.3 * capacityScore;
       return { rec, total, distanceScore, impactScore, capacityScore };
     });
 

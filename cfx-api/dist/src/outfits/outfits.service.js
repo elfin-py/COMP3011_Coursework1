@@ -74,7 +74,9 @@ let OutfitsService = class OutfitsService {
             },
         });
         if (existing) {
-            await this.prisma.savedRecommendation.delete({ where: { id: existing.id } });
+            await this.prisma.savedRecommendation.delete({
+                where: { id: existing.id },
+            });
             return { saved: false, id: existing.id };
         }
         const savedCount = await this.prisma.savedRecommendation.count({
@@ -97,7 +99,9 @@ let OutfitsService = class OutfitsService {
         return { saved: true, id: created.id };
     }
     async logUsage(userId, outfitId, dto) {
-        const outfit = await this.prisma.outfit.findUnique({ where: { id: outfitId } });
+        const outfit = await this.prisma.outfit.findUnique({
+            where: { id: outfitId },
+        });
         if (!outfit || outfit.userId !== userId) {
             throw new common_1.NotFoundException('Outfit not found for user');
         }

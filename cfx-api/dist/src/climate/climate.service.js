@@ -132,7 +132,9 @@ let ClimateService = class ClimateService {
         return new Date(utcGuess - offsetMins * 60_000);
     }
     async geocode(location) {
-        const coordMatch = location.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+        const coordMatch = location
+            .trim()
+            .match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
         if (coordMatch) {
             const lat = Number(coordMatch[1]);
             const lon = Number(coordMatch[2]);
@@ -146,7 +148,11 @@ let ClimateService = class ClimateService {
         const data = await res.json();
         if (data?.results?.length) {
             const first = data.results[0];
-            return { lat: first.latitude, lon: first.longitude, timezone: first.timezone };
+            return {
+                lat: first.latitude,
+                lon: first.longitude,
+                timezone: first.timezone,
+            };
         }
         return null;
     }
@@ -255,7 +261,9 @@ let ClimateService = class ClimateService {
             data: {
                 location: dto.location,
                 capturedAt: new Date(dto.capturedAt),
-                validFor: dto.validFor ? new Date(dto.validFor) : new Date(dto.capturedAt),
+                validFor: dto.validFor
+                    ? new Date(dto.validFor)
+                    : new Date(dto.capturedAt),
                 temperatureC: dto.temperatureC,
                 humidity: dto.humidity,
                 windKph: dto.windKph,
@@ -280,13 +288,17 @@ let ClimateService = class ClimateService {
                     where: { location, validFor: { gte: target } },
                     orderBy: [{ validFor: 'asc' }, { capturedAt: 'desc' }],
                 });
-                if (next?.validFor && Math.abs(new Date(next.validFor).getTime() - target.getTime()) < 3 * 60 * 60 * 1000)
+                if (next?.validFor &&
+                    Math.abs(new Date(next.validFor).getTime() - target.getTime()) <
+                        3 * 60 * 60 * 1000)
                     return next;
                 const prev = await this.prisma.climateSnapshot.findFirst({
                     where: { location, validFor: { lte: target } },
                     orderBy: [{ validFor: 'desc' }, { capturedAt: 'desc' }],
                 });
-                if (prev?.validFor && Math.abs(new Date(prev.validFor).getTime() - target.getTime()) < 3 * 60 * 60 * 1000)
+                if (prev?.validFor &&
+                    Math.abs(new Date(prev.validFor).getTime() - target.getTime()) <
+                        3 * 60 * 60 * 1000)
                     return prev;
                 const live = await this.fetchLiveWeather(location, datetime, zone);
                 if (live) {

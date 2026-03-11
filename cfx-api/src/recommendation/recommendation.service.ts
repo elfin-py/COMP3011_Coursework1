@@ -28,7 +28,8 @@ export class RecommendationService {
     options?: RecommendOptions,
   ) {
     const climate = await this.climateService.latest(location, datetime);
-    if (!climate) throw new NotFoundException('No climate snapshot for location');
+    if (!climate)
+      throw new NotFoundException('No climate snapshot for location');
 
     const outfits = await this.prisma.outfit.findMany({
       where: userId ? { userId } : undefined,
@@ -38,7 +39,9 @@ export class RecommendationService {
     if (outfits.length === 0)
       throw new NotFoundException('No outfits found to score');
 
-    const userPref = userId ? await this.feedbackService.userAverage(userId) : { avg: null, count: 0 };
+    const userPref = userId
+      ? await this.feedbackService.userAverage(userId)
+      : { avg: null, count: 0 };
 
     const scored = outfits.map((o) => {
       const perItemPromises = o.items.map((oi) =>
@@ -52,8 +55,13 @@ export class RecommendationService {
         const perItem = await Promise.all(entry.perItemPromises);
         const customBoost = this.customPreferenceBoost(entry.outfit, options);
         const total =
-          perItem.reduce((acc, s) => acc + s.total, 0) / (perItem.length || 1) + customBoost;
-        return { outfit: entry.outfit, score: { total, items: perItem }, customBoost };
+          perItem.reduce((acc, s) => acc + s.total, 0) / (perItem.length || 1) +
+          customBoost;
+        return {
+          outfit: entry.outfit,
+          score: { total, items: perItem },
+          customBoost,
+        };
       }),
     );
 
@@ -63,13 +71,19 @@ export class RecommendationService {
 
   private customPreferenceBoost(outfit: any, options?: RecommendOptions) {
     if (!options) return 0;
-    const tags = ((outfit.styleTags || []) as string[]).map((t) => t.toLowerCase());
+    const tags = ((outfit.styleTags || []) as string[]).map((t) =>
+      t.toLowerCase(),
+    );
     const occasion = (outfit.occasion || '').toLowerCase();
     const wants = (options.styleTags || []).map((t) => t.toLowerCase());
     const avoids = (options.avoidTags || []).map((t) => t.toLowerCase());
 
     let boost = 0;
-    if (options.occasion && occasion && occasion.includes(options.occasion.toLowerCase())) {
+    if (
+      options.occasion &&
+      occasion &&
+      occasion.includes(options.occasion.toLowerCase())
+    ) {
       boost += 0.08;
     }
     if (wants.length) {
@@ -91,7 +105,10 @@ export class RecommendationService {
     climate: any,
     userPref: { avg: number | null; count: number },
   ) {
-    const tempScore = this.tempMatch(item.insulation ?? 0.5, climate.temperatureC);
+    const tempScore = this.tempMatch(
+      item.insulation ?? 0.5,
+      climate.temperatureC,
+    );
     const precip = climate.precipProb ?? 0;
     const wind = climate.windKph ?? 0;
     const material = (item.material || '').toLowerCase();
@@ -103,7 +120,10 @@ export class RecommendationService {
     if (precip > 20 && material.includes('suede')) precipPenalty += 0.5;
 
     let windPenalty = 0;
-    if (wind > 25 && tags.some((t) => ['skirt', 'dress'].includes(t.toLowerCase()))) {
+    if (
+      wind > 25 &&
+      tags.some((t) => ['skirt', 'dress'].includes(t.toLowerCase()))
+    ) {
       windPenalty += 0.3;
     }
 
@@ -115,11 +135,16 @@ export class RecommendationService {
     // trend boost: if item tags intersect with top tags
     const trendBoost = await this.trendBoost(tags, material);
 
-    const protection = Math.min(1, (item.waterproof ?? 0) + (material.includes('waterproof') ? 0.2 : 0));
+    const protection = Math.min(
+      1,
+      (item.waterproof ?? 0) + (material.includes('waterproof') ? 0.2 : 0),
+    );
 
     // simple user-adaptive boost: if user avg rating >3, give slight lift
     const userBoost =
-      userPref.avg && userPref.avg > 3 ? Math.min(0.1, (userPref.avg - 3) * 0.03) : 0;
+      userPref.avg && userPref.avg > 3
+        ? Math.min(0.1, (userPref.avg - 3) * 0.03)
+        : 0;
 
     const total =
       0.45 * tempScore +
@@ -143,8 +168,14 @@ export class RecommendationService {
   }
 
   private async trendBoost(tags: string[], material: string) {
-    const recentNews = await this.trendsService.topTagsRecent('news-rss', 120, 60);
-    const trends = recentNews.length ? recentNews : await this.trendsService.topTags('', 60);
+    const recentNews = await this.trendsService.topTagsRecent(
+      'news-rss',
+      120,
+      60,
+    );
+    const trends = recentNews.length
+      ? recentNews
+      : await this.trendsService.topTags('', 60);
 
     const byTag = new Map<string, { volume: number; sentiment: number }>();
     for (const t of trends) {
@@ -164,7 +195,10 @@ export class RecommendationService {
       const stat = byTag.get(key);
       if (!stat) continue;
       const volumeWeight = Math.min(0.35, Math.log10(stat.volume + 1) / 4);
-      const sentimentWeight = Math.max(-0.55, Math.min(0.55, stat.sentiment * 0.55));
+      const sentimentWeight = Math.max(
+        -0.55,
+        Math.min(0.55, stat.sentiment * 0.55),
+      );
       const score = volumeWeight + sentimentWeight;
       if (Math.abs(score) > Math.abs(best)) best = score;
     }

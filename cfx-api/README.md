@@ -1,6 +1,6 @@
 # Style Forecast API
 
-API for climate-aware outfit recommendations and fashion trend analysis. It manages wardrobes, caches weather snapshots, ingests trend signals (news RSS or synthetic), and scores outfits with weather + trend-aware heuristics.
+API for climate-aware outfit recommendations and fashion trend analysis. It resolves forecast context, ingests magazine/news trend signals, stores recommendation feedback and snapshots, and scores outfits with explainable weather + trend-aware heuristics.
 
 ## Quickstart
 1. Install Node 18+ and Docker.
@@ -10,7 +10,12 @@ API for climate-aware outfit recommendations and fashion trend analysis. It mana
 5. Migrate + generate client: `npm run prisma:migrate && npm run prisma:generate`
 6. Seed demo data: `npm run prisma:seed`
 7. (Optional) Ingest trends: `npm run ingest:trends` or `npm run ingest:news`
-8. Run: `npm run start:dev` (Swagger at http://localhost:3000/docs, health at http://localhost:3000/api/health)
+8. Set strong JWT secrets in `.env`, then run: `npm run start:dev` (Swagger at http://localhost:3000/docs, health at http://localhost:3000/api/health)
+
+## Core assessed system
+- Core user-facing workflow: request a recommendation for a location and time, inspect the scored result, save it, and refine future outputs through feedback.
+- Core persistence supporting that workflow: `User`, `Profile`, `Outfit`, `Item`, `ClimateSnapshot`, `OutfitUsage`, `SavedRecommendation`, and `Feedback`.
+- Supporting extensions: listings, matching, donations, recycling, shipment, and analytics modules. These extend the codebase but are not the primary narrative of the final submission.
 
 ## Scripts
 - `npm run prisma:migrate` – apply schema
@@ -22,16 +27,16 @@ API for climate-aware outfit recommendations and fashion trend analysis. It mana
 - `npm run docs:pdf` – export OpenAPI PDF to `docs/api.pdf`
 
 ## Features (current)
-- JWT auth (register/login)
-- Users with profiles (size/location)
-- Items with insulation/waterproof/style tags
-- Outfits per user
-- Climate snapshots with `validFor` (forecast support)
-- Recommendation `GET /recommendations/outfit?location=...&datetime=...`
-- Trend ingestion + endpoints (`/trends/top`, `/trends/materials`)
+- JWT auth (register/login/refresh)
+- User profiles with saved home location and timezone
+- Item and outfit resources supporting assessed CRUD and stored recommendation structures
+- Climate snapshots with `validFor` for forecast-aware scoring
+- Recommendation `GET /recommendations/outfit?location=...&datetime=...` with optional authenticated personalisation
+- Trend ingestion + endpoints (`/trends/top`, `/trends/materials`, Pinterest/Google inspiration helpers)
+- Saved recommendation snapshots and feedback-driven scoring
+- Outfit usage logging with captured climate context
+- Listings lifecycle with create/update/delete support
 - Analytics `/analytics/impact`, `/analytics/match-success`, `/analytics/recycler-capacity`, `/analytics/comfort-vs-temp`
-- Feedback logging and user-adaptive scoring
-- Outfit usage logging with captured climate to improve future recs
 - Health probe `/api/health`
 
 ## Docs export
@@ -47,15 +52,15 @@ Register:
 ```bash
 curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"password123","cityLat":53.8,"cityLon":-1.55}'
+  -d '{"username":"styleuser","password":"Password1","cityLat":53.8,"cityLon":-1.55}'
 ```
 Login (get accessToken):
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"password123"}' | jq -r .tokens.accessToken)
+  -d '{"username":"styleuser","password":"Password1"}' | jq -r .tokens.accessToken)
 ```
-Create outfit quickly (auto item):
+Create the supporting item and outfit used by the recommendation engine:
 ```bash
 ITEM_ID=$(curl -s -X POST http://localhost:3000/api/items \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -97,7 +102,8 @@ curl -X POST http://localhost:3000/api/feedback/recommendation \
 - Overall score combines comfort, rain/wind protection, trend boost, user boost.
 
 ## CI
-- GitHub Actions workflow `.github/workflows/ci.yml` runs lint + unit tests (`npm run ci:lint-test`).
+- Verified automated test gate for this project is `npm run ci:test`, which runs unit and e2e coverage.
+- Linting remains available separately through `npm run lint`.
 
 ## Roadmap
 - Improve user-adaptive model with per-feature weight learning

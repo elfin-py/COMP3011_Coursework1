@@ -77,7 +77,10 @@ export class TrendsService {
       const results = json?.resource_response?.data?.results ?? [];
       const images = results
         .map((r: any) => r?.images?.orig?.url as string | undefined)
-        .filter((u: string | undefined): u is string => !!u && /\.(jpe?g|png|webp)$/i.test(u));
+        .filter(
+          (u: string | undefined): u is string =>
+            !!u && /\.(jpe?g|png|webp)$/i.test(u),
+        );
       const unique = Array.from(new Set(images)).slice(0, 10);
       if (unique.length) {
         return unique.map((url) => ({ url, source: 'pinterest', query }));
@@ -98,7 +101,9 @@ export class TrendsService {
       },
     });
     const html = await res.text();
-    const matches = Array.from(html.matchAll(/\"ou\":\"(https?:[^\"\\s]+)\"/g)).map((m) => m[1]);
+    const matches = Array.from(
+      html.matchAll(/\"ou\":\"(https?:[^\"\\s]+)\"/g),
+    ).map((m) => m[1]);
     const unique = Array.from(new Set(matches)).slice(0, 10);
     return unique.map((url) => ({ url, source: 'google', query }));
   }

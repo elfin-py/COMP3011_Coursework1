@@ -20,7 +20,12 @@ export class ClimateController {
     @Query('tz') tz?: string,
     @Query('force_live') forceLive?: string,
   ) {
-    return this.climateService.latest(location, datetime, tz, forceLive === 'true');
+    return this.climateService.latest(
+      location,
+      datetime,
+      tz,
+      forceLive === 'true',
+    );
   }
 
   @Post('local-now')

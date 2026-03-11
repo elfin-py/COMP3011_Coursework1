@@ -12,7 +12,10 @@ async function getBrowser(): Promise<Browser> {
   });
 }
 
-export async function scrapePinterestImages(query: string, limit = 4): Promise<string[]> {
+export async function scrapePinterestImages(
+  query: string,
+  limit = 4,
+): Promise<string[]> {
   const browser = await getBrowser();
   try {
     const page = await browser.newPage();
@@ -31,7 +34,8 @@ export async function scrapePinterestImages(query: string, limit = 4): Promise<s
       'net-a-porter.com',
     ];
 
-    const overlayWords = /(outfit|ideas|fashion|trend|look|style|expensive|winter|wardrobe|combo|ideas)/i;
+    const overlayWords =
+      /(outfit|ideas|fashion|trend|look|style|expensive|winter|wardrobe|combo|ideas)/i;
     const seen = new Set<string>();
     const deduped: string[] = [];
 

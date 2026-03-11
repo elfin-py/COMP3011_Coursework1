@@ -24,7 +24,9 @@ export class OutfitsService {
         where: { id: { in: itemIds }, ownerId: userId },
       });
       if (items.length !== itemIds.length) {
-        throw new NotFoundException('One or more items not found or not owned by user');
+        throw new NotFoundException(
+          'One or more items not found or not owned by user',
+        );
       }
     }
     return this.prisma.outfit.create({
@@ -78,7 +80,9 @@ export class OutfitsService {
     });
 
     if (existing) {
-      await this.prisma.savedRecommendation.delete({ where: { id: existing.id } });
+      await this.prisma.savedRecommendation.delete({
+        where: { id: existing.id },
+      });
       return { saved: false, id: existing.id };
     }
 
@@ -86,7 +90,9 @@ export class OutfitsService {
       where: { userId },
     });
     if (savedCount >= 20) {
-      throw new BadRequestException('You can save up to 20 recommendations at a time');
+      throw new BadRequestException(
+        'You can save up to 20 recommendations at a time',
+      );
     }
 
     const created = await this.prisma.savedRecommendation.create({
@@ -104,7 +110,9 @@ export class OutfitsService {
   }
 
   async logUsage(userId: string, outfitId: string, dto: LogUsageDto) {
-    const outfit = await this.prisma.outfit.findUnique({ where: { id: outfitId } });
+    const outfit = await this.prisma.outfit.findUnique({
+      where: { id: outfitId },
+    });
     if (!outfit || outfit.userId !== userId) {
       throw new NotFoundException('Outfit not found for user');
     }

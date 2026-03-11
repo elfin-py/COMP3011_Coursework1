@@ -22,7 +22,11 @@ describe('Happy path flow (e2e)', () => {
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
     );
     await app.init();
   });
@@ -70,7 +74,9 @@ describe('Happy path flow (e2e)', () => {
         itemId,
         intent: 'SWAP',
         availabilityStart: new Date().toISOString(),
-        availabilityEnd: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+        availabilityEnd: new Date(
+          Date.now() + 7 * 24 * 3600 * 1000,
+        ).toISOString(),
       })
       .expect(201);
     listingId = createListing.body.id;
@@ -87,7 +93,9 @@ describe('Happy path flow (e2e)', () => {
       .patch(`/api/listings/${listingId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        availabilityEnd: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
+        availabilityEnd: new Date(
+          Date.now() + 14 * 24 * 3600 * 1000,
+        ).toISOString(),
       })
       .expect(200);
 

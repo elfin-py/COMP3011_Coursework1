@@ -28,12 +28,18 @@ export class ChatService {
     const cleanContext = this.cleanUserMessage(dto.context || '');
     const combinedMessage = `${cleanContext} ${cleanMessage}`.trim();
     const userId = await this.tryExtractUserId(authHeader);
-    const extracted = await this.extractPreferences(combinedMessage || cleanMessage);
+    const extracted = await this.extractPreferences(
+      combinedMessage || cleanMessage,
+    );
     const merged: ExtractedPrefs = {
       occasion: dto.occasion || extracted.occasion,
       activity: dto.activity || extracted.activity,
-      styleTags: [...new Set([...(dto.styleTags || []), ...(extracted.styleTags || [])])],
-      avoidTags: [...new Set([...(dto.avoidTags || []), ...(extracted.avoidTags || [])])],
+      styleTags: [
+        ...new Set([...(dto.styleTags || []), ...(extracted.styleTags || [])]),
+      ],
+      avoidTags: [
+        ...new Set([...(dto.avoidTags || []), ...(extracted.avoidTags || [])]),
+      ],
       preferences: extracted.preferences || [],
     };
 
@@ -45,9 +51,15 @@ export class ChatService {
     );
 
     const topItem = result.outfit?.items?.[0]?.item;
-    const tags = (topItem?.styleTags || result.outfit?.styleTags || []).slice(0, 4);
+    const tags = (topItem?.styleTags || result.outfit?.styleTags || []).slice(
+      0,
+      4,
+    );
     const material = topItem?.material || 'layer-friendly fabric';
-    const climate = await this.climateService.latest(dto.location, dto.datetime);
+    const climate = await this.climateService.latest(
+      dto.location,
+      dto.datetime,
+    );
     const weatherStyle = this.weatherStyleGuidance(climate);
     const narrative = await this.generateAssistantReply(
       dto,
@@ -100,7 +112,8 @@ export class ChatService {
   private async extractPreferences(message: string): Promise<ExtractedPrefs> {
     const fallback = this.ruleExtract(message);
     const hfToken = process.env.HF_TOKEN;
-    const hfModel = process.env.HF_CHAT_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
+    const hfModel =
+      process.env.HF_CHAT_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
     if (!hfToken) return fallback;
 
     try {
@@ -109,29 +122,44 @@ export class ChatService {
         'Keys: occasion, activity, styleTags[], avoidTags[], preferences[]',
         `Message: ${message}`,
       ].join('\n');
-      const res = await fetch(`https://api-inference.huggingface.co/models/${encodeURIComponent(hfModel)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${hfToken}`,
-          'Content-Type': 'application/json',
+      const res = await fetch(
+        `https://api-inference.huggingface.co/models/${encodeURIComponent(hfModel)}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${hfToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 200,
+              temperature: 0.2,
+              return_full_text: false,
+            },
+          }),
         },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: { max_new_tokens: 200, temperature: 0.2, return_full_text: false },
-        }),
-      });
+      );
       if (!res.ok) return fallback;
       const data: any = await res.json();
-      const raw = Array.isArray(data) ? (data[0]?.generated_text || '') : (data?.generated_text || '');
+      const raw = Array.isArray(data)
+        ? data[0]?.generated_text || ''
+        : data?.generated_text || '';
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return fallback;
       const parsed = JSON.parse(jsonMatch[0]);
       return {
         occasion: parsed?.occasion || fallback.occasion,
         activity: parsed?.activity || fallback.activity,
-        styleTags: Array.isArray(parsed?.styleTags) ? parsed.styleTags : fallback.styleTags,
-        avoidTags: Array.isArray(parsed?.avoidTags) ? parsed.avoidTags : fallback.avoidTags,
-        preferences: Array.isArray(parsed?.preferences) ? parsed.preferences : fallback.preferences,
+        styleTags: Array.isArray(parsed?.styleTags)
+          ? parsed.styleTags
+          : fallback.styleTags,
+        avoidTags: Array.isArray(parsed?.avoidTags)
+          ? parsed.avoidTags
+          : fallback.avoidTags,
+        preferences: Array.isArray(parsed?.preferences)
+          ? parsed.preferences
+          : fallback.preferences,
       };
     } catch (e: any) {
       this.logger.warn(`HF extraction failed: ${e?.message ?? e}`);
@@ -141,14 +169,37 @@ export class ChatService {
 
   private ruleExtract(message: string): ExtractedPrefs {
     const txt = message.toLowerCase();
-    const styles = ['casual', 'smart', 'streetwear', 'minimal', 'formal', 'sporty', 'puffer', 'denim'];
+    const styles = [
+      'casual',
+      'smart',
+      'streetwear',
+      'minimal',
+      'formal',
+      'sporty',
+      'puffer',
+      'denim',
+    ];
     const avoidables = ['suede', 'silk', 'airy', 'shorts', 'skirt'];
-    const activities = ['work', 'school', 'gym', 'party', 'run', 'hike', 'commute'];
+    const activities = [
+      'work',
+      'school',
+      'gym',
+      'party',
+      'run',
+      'hike',
+      'commute',
+    ];
     return {
-      occasion: txt.includes('formal') ? 'formal' : txt.includes('work') ? 'work' : undefined,
+      occasion: txt.includes('formal')
+        ? 'formal'
+        : txt.includes('work')
+          ? 'work'
+          : undefined,
       activity: activities.find((a) => txt.includes(a)),
       styleTags: styles.filter((s) => txt.includes(s)),
-      avoidTags: avoidables.filter((a) => txt.includes(`no ${a}`) || txt.includes(`avoid ${a}`)),
+      avoidTags: avoidables.filter(
+        (a) => txt.includes(`no ${a}`) || txt.includes(`avoid ${a}`),
+      ),
       preferences: txt
         .split(/[.,;!?]/)
         .map((s) => s.trim())
@@ -164,13 +215,29 @@ export class ChatService {
     material: string,
     cleanMessage: string,
     cleanContext: string,
-    weatherStyle: { palette: string; patterns: string; fabrics: string; note: string },
+    weatherStyle: {
+      palette: string;
+      patterns: string;
+      fabrics: string;
+      note: string;
+    },
   ) {
-    const intentText = `${prefs.occasion || ''} ${prefs.activity || ''} ${cleanContext} ${cleanMessage}`.toLowerCase();
+    const intentText =
+      `${prefs.occasion || ''} ${prefs.activity || ''} ${cleanContext} ${cleanMessage}`.toLowerCase();
     const styleBits = this.styleDirection(intentText, prefs.styleTags || tags);
-    const avoidBits = prefs.avoidTags?.length ? `Skip ${prefs.avoidTags.slice(0, 2).join(' and ')}.` : '';
-    const event = prefs.occasion || prefs.activity || (/(dinner|date|party|evening)/.test(intentText) ? 'dinner plans' : 'your plans');
-    const noHeels = /(no heels|without heels|don.t want heels|dont want heels)/.test(intentText);
+    const avoidBits = prefs.avoidTags?.length
+      ? `Skip ${prefs.avoidTags.slice(0, 2).join(' and ')}.`
+      : '';
+    const event =
+      prefs.occasion ||
+      prefs.activity ||
+      (/(dinner|date|party|evening)/.test(intentText)
+        ? 'dinner plans'
+        : 'your plans');
+    const noHeels =
+      /(no heels|without heels|don.t want heels|dont want heels)/.test(
+        intentText,
+      );
     const wantsStilettos = /(stiletto|stilettos)/.test(intentText);
     const wantsHeels = /(heels|high heels|pumps)/.test(intentText);
     const footwear = noHeels
@@ -192,9 +259,12 @@ export class ChatService {
   }
 
   private styleDirection(intentText: string, hintedTags: string[]) {
-    if (/(dinner|date|party|evening|formal)/.test(intentText)) return 'polished, dressy';
-    if (/(work|office|meeting)/.test(intentText)) return 'smart-casual, tailored';
-    if (/(gym|workout|training|run)/.test(intentText)) return 'athleisure, performance';
+    if (/(dinner|date|party|evening|formal)/.test(intentText))
+      return 'polished, dressy';
+    if (/(work|office|meeting)/.test(intentText))
+      return 'smart-casual, tailored';
+    if (/(gym|workout|training|run)/.test(intentText))
+      return 'athleisure, performance';
     const cleaned = (hintedTags || [])
       .map((t) => t.toLowerCase())
       .filter((t) => !['puffer', 'casual', 'recycled cotton'].includes(t))
@@ -209,13 +279,27 @@ export class ChatService {
     material: string,
     cleanMessage: string,
     cleanContext: string,
-    weatherStyle: { palette: string; patterns: string; fabrics: string; note: string },
+    weatherStyle: {
+      palette: string;
+      patterns: string;
+      fabrics: string;
+      note: string;
+    },
   ) {
-    const fallback = this.buildNarrative(dto, prefs, tags, material, cleanMessage, cleanContext, weatherStyle);
+    const fallback = this.buildNarrative(
+      dto,
+      prefs,
+      tags,
+      material,
+      cleanMessage,
+      cleanContext,
+      weatherStyle,
+    );
     const hfToken = process.env.HF_TOKEN;
     if (!hfToken) return fallback;
 
-    const hfModel = process.env.HF_CHAT_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
+    const hfModel =
+      process.env.HF_CHAT_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
     const prompt = [
       'You are a helpful fashion stylist assistant in a weather-aware outfit app.',
       'Give one concrete outfit suggestion in natural, conversational human language.',
@@ -243,25 +327,30 @@ export class ChatService {
     ].join('\n');
 
     try {
-      const res = await fetch(`https://api-inference.huggingface.co/models/${encodeURIComponent(hfModel)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${hfToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 180,
-            temperature: 0.55,
-            top_p: 0.9,
-            return_full_text: false,
+      const res = await fetch(
+        `https://api-inference.huggingface.co/models/${encodeURIComponent(hfModel)}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${hfToken}`,
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 180,
+              temperature: 0.55,
+              top_p: 0.9,
+              return_full_text: false,
+            },
+          }),
+        },
+      );
       if (!res.ok) return fallback;
       const data: any = await res.json();
-      const raw = Array.isArray(data) ? data[0]?.generated_text : data?.generated_text;
+      const raw = Array.isArray(data)
+        ? data[0]?.generated_text
+        : data?.generated_text;
       const text = typeof raw === 'string' ? raw.trim() : '';
       if (!text) return fallback;
       return text.replace(/^answer:\s*/i, '').trim();

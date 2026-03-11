@@ -25,7 +25,8 @@ let DonationsService = class DonationsService {
         });
         if (!item)
             throw new common_1.NotFoundException('Item not found');
-        if (item.status !== client_1.ItemStatus.AVAILABLE && item.status !== client_1.ItemStatus.RESERVED) {
+        if (item.status !== client_1.ItemStatus.AVAILABLE &&
+            item.status !== client_1.ItemStatus.RESERVED) {
             throw new common_1.BadRequestException('Item cannot be routed in current status');
         }
         const recyclers = await this.prisma.recycler.findMany({
