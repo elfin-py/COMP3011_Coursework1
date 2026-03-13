@@ -68,6 +68,10 @@ class SavedOutfitSnapshotDto {
   imageUrls?: string[];
 
   @IsOptional()
+  @IsString()
+  styleBlurb?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SavedItemDto)

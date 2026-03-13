@@ -6,7 +6,7 @@ const { AppModule } = require('../dist/app.module');
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder()
-    .setTitle('Circular Fashion Exchange API')
+    .setTitle('Style Forecast API')
     .setDescription('Swagger export')
     .setVersion('0.1.0')
     .addBearerAuth()

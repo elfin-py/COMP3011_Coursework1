@@ -17,6 +17,46 @@ export class OutfitsService {
     private readonly climateService: ClimateService,
   ) {}
 
+  private imageKey(url: string) {
+    try {
+      const parsed = new URL(url);
+      const parts = parsed.pathname
+        .toLowerCase()
+        .split('/')
+        .filter(Boolean)
+        .filter((part) => !/^\d+x$/.test(part) && part !== 'originals' && part !== 'original');
+      const tail = parts.slice(-4);
+      return tail
+        .join('/')
+        .replace(/[-_][a-z0-9]{6,}(?=\.)/g, '')
+        .replace(/(crop|rs|fit|smart)[-_]?[a-z0-9-]*/g, '');
+    } catch {
+      return url.split('?')[0].toLowerCase();
+    }
+  }
+
+  private dedupeImageUrls(urls?: string[]) {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const url of urls || []) {
+      if (!url) continue;
+      const key = this.imageKey(url);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(url);
+      if (deduped.length >= 2) break;
+    }
+    return deduped;
+  }
+
+  private sanitiseOutfitSnapshot(snapshot: any) {
+    if (!snapshot || typeof snapshot !== 'object') return snapshot;
+    return {
+      ...snapshot,
+      imageUrls: this.dedupeImageUrls(snapshot.imageUrls),
+    };
+  }
+
   async create(userId: string, dto: CreateOutfitDto) {
     const itemIds = dto.itemIds ?? [];
     if (itemIds.length > 0) {
@@ -56,12 +96,16 @@ export class OutfitsService {
     });
   }
 
-  getSavedRecommendations(userId: string) {
-    return this.prisma.savedRecommendation.findMany({
+  async getSavedRecommendations(userId: string) {
+    const saved = await this.prisma.savedRecommendation.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
+    return saved.map((entry) => ({
+      ...entry,
+      outfitSnapshot: this.sanitiseOutfitSnapshot(entry.outfitSnapshot),
+    }));
   }
 
   async toggleSavedRecommendation(
@@ -95,6 +139,11 @@ export class OutfitsService {
       );
     }
 
+    const sanitisedOutfit = {
+      ...dto.outfit,
+      imageUrls: this.dedupeImageUrls(dto.outfit.imageUrls),
+    };
+
     const created = await this.prisma.savedRecommendation.create({
       data: {
         userId,
@@ -103,7 +152,7 @@ export class OutfitsService {
         location: dto.location,
         recommendedFor,
         weatherSummary: dto.weather as Prisma.InputJsonValue,
-        outfitSnapshot: dto.outfit as unknown as Prisma.InputJsonValue,
+        outfitSnapshot: sanitisedOutfit as unknown as Prisma.InputJsonValue,
       },
     });
     return { saved: true, id: created.id };

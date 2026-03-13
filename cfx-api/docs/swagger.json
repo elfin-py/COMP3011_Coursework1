@@ -63,6 +63,30 @@
         ]
       }
     },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/users/me/settings": {
       "get": {
         "operationId": "UsersController_meSettings",
@@ -99,6 +123,30 @@
         ]
       }
     },
+    "/users/me/change-password": {
+      "post": {
+        "operationId": "UsersController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/items": {
       "post": {
         "operationId": "ItemsController_create",
@@ -115,6 +163,18 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "items"
+        ]
+      },
+      "get": {
+        "operationId": "ItemsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -138,6 +198,58 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "items"
+        ]
+      },
+      "patch": {
+        "operationId": "ItemsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "items"
+        ]
+      },
+      "delete": {
+        "operationId": "ItemsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
             "description": ""
           }
         },
@@ -183,6 +295,58 @@
       }
     },
     "/listings/{id}": {
+      "patch": {
+        "operationId": "ListingsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "listings"
+        ]
+      },
+      "delete": {
+        "operationId": "ListingsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "listings"
+        ]
+      },
       "get": {
         "operationId": "ListingsController_findOne",
         "parameters": [
@@ -437,6 +601,20 @@
         ]
       }
     },
+    "/outfits/saved": {
+      "get": {
+        "operationId": "OutfitsController_findSaved",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "outfits"
+        ]
+      }
+    },
     "/outfits/{id}/usage": {
       "post": {
         "operationId": "OutfitsController_logUsage",
@@ -456,6 +634,30 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LogUsageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "outfits"
+        ]
+      }
+    },
+    "/outfits/saved/toggle": {
+      "post": {
+        "operationId": "OutfitsController_toggleSaved",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleSavedRecommendationDto"
               }
             }
           }
@@ -666,7 +868,7 @@
     }
   },
   "info": {
-    "title": "Circular Fashion Exchange API",
+    "title": "Style Forecast API",
     "description": "OpenAPI export",
     "version": "0.2.0",
     "contact": {}
@@ -690,7 +892,15 @@
         "type": "object",
         "properties": {}
       },
+      "RefreshDto": {
+        "type": "object",
+        "properties": {}
+      },
       "UpdateSettingsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ChangePasswordDto": {
         "type": "object",
         "properties": {}
       },
@@ -698,7 +908,15 @@
         "type": "object",
         "properties": {}
       },
+      "UpdateItemDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateListingDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateListingDto": {
         "type": "object",
         "properties": {}
       },
@@ -711,6 +929,10 @@
         "properties": {}
       },
       "LogUsageDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ToggleSavedRecommendationDto": {
         "type": "object",
         "properties": {}
       },

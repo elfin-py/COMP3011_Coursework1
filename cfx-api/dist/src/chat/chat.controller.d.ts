@@ -44,6 +44,7 @@ export declare class ChatController {
                     windPenalty: number;
                     protection: number;
                     trendBoost: number;
+                    materialQuality: number;
                     userBoost: number;
                     total: number;
                 }[];

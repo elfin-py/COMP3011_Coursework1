@@ -15,6 +15,7 @@ const client_1 = require("@prisma/client");
 const adapter_pg_1 = require("@prisma/adapter-pg");
 const pg_1 = require("pg");
 let PrismaService = class PrismaService extends client_1.PrismaClient {
+    pool;
     constructor() {
         const connectionString = process.env.DATABASE_URL ||
             'postgresql://cfx:cfxpass@localhost:5432/cfx?schema=public';
@@ -23,9 +24,14 @@ let PrismaService = class PrismaService extends client_1.PrismaClient {
         super({
             adapter,
         });
+        this.pool = pool;
     }
     async onModuleInit() {
         await this.$connect();
+    }
+    async onModuleDestroy() {
+        await this.$disconnect();
+        await this.pool.end();
     }
     async enableShutdownHooks(app) {
         process.once('beforeExit', async () => {

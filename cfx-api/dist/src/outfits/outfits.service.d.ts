@@ -8,6 +8,9 @@ export declare class OutfitsService {
     private readonly prisma;
     private readonly climateService;
     constructor(prisma: PrismaService, climateService: ClimateService);
+    private imageKey;
+    private dedupeImageUrls;
+    private sanitiseOutfitSnapshot;
     create(userId: string, dto: CreateOutfitDto): Promise<{
         items: ({
             item: {
@@ -68,7 +71,8 @@ export declare class OutfitsService {
         name: string;
         occasion: string | null;
     })[]>;
-    getSavedRecommendations(userId: string): Prisma.PrismaPromise<{
+    getSavedRecommendations(userId: string): Promise<{
+        outfitSnapshot: any;
         id: string;
         createdAt: Date;
         userId: string;
@@ -77,7 +81,6 @@ export declare class OutfitsService {
         recommendedFor: Date;
         outfitName: string;
         weatherSummary: Prisma.JsonValue;
-        outfitSnapshot: Prisma.JsonValue;
     }[]>;
     toggleSavedRecommendation(userId: string, dto: ToggleSavedRecommendationDto): Promise<{
         saved: boolean;

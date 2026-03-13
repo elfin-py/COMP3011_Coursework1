@@ -20,6 +20,48 @@ let OutfitsService = class OutfitsService {
         this.prisma = prisma;
         this.climateService = climateService;
     }
+    imageKey(url) {
+        try {
+            const parsed = new URL(url);
+            const parts = parsed.pathname
+                .toLowerCase()
+                .split('/')
+                .filter(Boolean)
+                .filter((part) => !/^\d+x$/.test(part) && part !== 'originals' && part !== 'original');
+            const tail = parts.slice(-4);
+            return tail
+                .join('/')
+                .replace(/[-_][a-z0-9]{6,}(?=\.)/g, '')
+                .replace(/(crop|rs|fit|smart)[-_]?[a-z0-9-]*/g, '');
+        }
+        catch {
+            return url.split('?')[0].toLowerCase();
+        }
+    }
+    dedupeImageUrls(urls) {
+        const seen = new Set();
+        const deduped = [];
+        for (const url of urls || []) {
+            if (!url)
+                continue;
+            const key = this.imageKey(url);
+            if (!key || seen.has(key))
+                continue;
+            seen.add(key);
+            deduped.push(url);
+            if (deduped.length >= 2)
+                break;
+        }
+        return deduped;
+    }
+    sanitiseOutfitSnapshot(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object')
+            return snapshot;
+        return {
+            ...snapshot,
+            imageUrls: this.dedupeImageUrls(snapshot.imageUrls),
+        };
+    }
     async create(userId, dto) {
         const itemIds = dto.itemIds ?? [];
         if (itemIds.length > 0) {
@@ -55,12 +97,16 @@ let OutfitsService = class OutfitsService {
             include: { items: { include: { item: true } } },
         });
     }
-    getSavedRecommendations(userId) {
-        return this.prisma.savedRecommendation.findMany({
+    async getSavedRecommendations(userId) {
+        const saved = await this.prisma.savedRecommendation.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
             take: 20,
         });
+        return saved.map((entry) => ({
+            ...entry,
+            outfitSnapshot: this.sanitiseOutfitSnapshot(entry.outfitSnapshot),
+        }));
     }
     async toggleSavedRecommendation(userId, dto) {
         const outfitId = dto.outfit.id ?? null;
@@ -85,6 +131,10 @@ let OutfitsService = class OutfitsService {
         if (savedCount >= 20) {
             throw new common_1.BadRequestException('You can save up to 20 recommendations at a time');
         }
+        const sanitisedOutfit = {
+            ...dto.outfit,
+            imageUrls: this.dedupeImageUrls(dto.outfit.imageUrls),
+        };
         const created = await this.prisma.savedRecommendation.create({
             data: {
                 userId,
@@ -93,7 +143,7 @@ let OutfitsService = class OutfitsService {
                 location: dto.location,
                 recommendedFor,
                 weatherSummary: dto.weather,
-                outfitSnapshot: dto.outfit,
+                outfitSnapshot: sanitisedOutfit,
             },
         });
         return { saved: true, id: created.id };

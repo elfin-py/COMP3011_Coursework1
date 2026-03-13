@@ -26,9 +26,9 @@
 
 \begin{center}
 \small
-\textbf{GitHub Repository:} \url{https://github.com/elfin-py/COMP3011_Coursework1}\\
-\textbf{API Documentation:} \url{https://github.com/elfin-py/COMP3011_Coursework1/blob/main/docs/API_Documentation.pdf}\\
-\textbf{Presentation Slides:} \url{https://www.canva.com/design/DAHDFsZqtBA/JNEDMbi9qdAN7INEfrJUkQ/edit?utm_content=DAHDFsZqtBA&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton}
+\href{https://github.com/elfin-py/COMP3011_Coursework1}{GitHub Repository}\\
+\href{https://github.com/elfin-py/COMP3011_Coursework1/blob/main/docs/API_Documentation.pdf}{API Documentation}\\
+\href{https://www.canva.com/design/DAHDFsZqtBA/JNEDMbi9qdAN7INEfrJUkQ/edit?utm_content=DAHDFsZqtBA&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton}{Presentation Slides}
 \end{center}
 
 \section{Overview}
@@ -42,7 +42,7 @@ The project was approached as a decision-support system rather than a generic fa
 \begin{itemize}
   \item \textbf{weather suitability}, to reduce the risk of physical discomfort,
   \item \textbf{trend relevance}, to reflect recent fashion signals,
-  \item \textbf{user feedback adaptation}, to avoid static, one-size-fits-all behaviour.
+  \item \textbf{bounded scoring}, to keep the recommendation stable, explainable, and technically defensible.
 \end{itemize}
 
 Alternative approaches were considered before selecting the final model. Pure collaborative filtering was not suitable because the dataset is small and suffers from cold-start problems. An end-to-end LLM ranking approach was also rejected because it would be harder to audit, less deterministic, and less reliable for a live assessment setting. GraphQL was considered as an alternative API style, but the assessed workflows favour stable resources, explicit status-code behaviour, and straightforward Swagger documentation. A hybrid weighted model therefore offered the best balance of interpretability, control, and practical usefulness.
@@ -65,7 +65,7 @@ The system is structured in three layers, shown in Figure~\ref{fig:architecture}
 \node[box, below left=of api] (climate) {Climate service\\forecast resolution};
 \node[box, below=of api] (trends) {Trend service\\magazine/news signals};
 \node[box, below right=of api] (chatrec) {Recommendation + chat\\scoring and guidance};
-\node[box, below=of trends] (db) {PostgreSQL + Prisma\\saved results, feedback, climate, trends};
+\node[box, below=of trends] (db) {PostgreSQL + Prisma\\saved results, climate, trends};
 
 \draw[arr] (client) -- (api);
 \draw[arr] (api) -- (climate);
@@ -85,9 +85,9 @@ The client is intentionally thin: it collects user input, presents results, and 
 \subsection{Technology Choices and Rationale}
 \textbf{TypeScript} was chosen across frontend and backend to reduce integration mismatch and improve refactor safety \cite{typescript}. Using one typed language simplified DTO design, API contracts, and debugging.
 
-\textbf{NestJS} was chosen for the backend because its modular structure fits a system with distinct domains such as authentication, climate retrieval, trend ingestion, feedback, and recommendation logic \cite{nestjs}. Keeping logic in services rather than controllers improved clarity and made it easier to adjust scoring logic without destabilising routing behaviour.
+\textbf{NestJS} was chosen for the backend because its modular structure fits a system with distinct domains such as authentication, climate retrieval, trend ingestion, persistence, and recommendation logic \cite{nestjs}. Keeping logic in services rather than controllers improved clarity and made it easier to adjust scoring logic without destabilising routing behaviour.
 
-\textbf{PostgreSQL} with \textbf{Prisma} was chosen for persistence \cite{postgresql,prisma}. An SQL database is appropriate because the project still has relational concerns: users, saved recommendation snapshots, feedback, climate records, and trend entries all benefit from structured querying and clear relationships. The schema also includes item and outfit resources used to satisfy the assessed CRUD requirement and support stored recommendation structures. Figure~\ref{fig:data} summarises the core persistence model used by the app and backend services.
+\textbf{PostgreSQL} with \textbf{Prisma} was chosen for persistence \cite{postgresql,prisma}. An SQL database is appropriate because the project still has relational concerns: users, saved recommendation snapshots, climate records, and trend entries all benefit from structured querying and clear relationships. The schema also includes item and outfit resources used to satisfy the assessed CRUD requirement and support stored recommendation structures. Figure~\ref{fig:data} summarises the core persistence model used by the app and backend services.
 
 \textbf{React + Vite} was chosen for the client because the interaction model is stateful and iterative \cite{react,vite}. React supports interactive recommendation flows and authenticated UI state, while Vite keeps iteration fast.
 
@@ -107,7 +107,7 @@ These operations are backed by PostgreSQL through Prisma and return conventional
 The \texttt{Item} model was the most appropriate candidate for full CRUD because it is a stable resource with clear lifecycle operations and conventional REST semantics. In the submitted app, however, CRUD is not the main user-facing story; the visible experience is recommendation-led, while these resources mainly support the assessed API surface and stored recommendation structures. The listings subsystem was also extended to support a fuller lifecycle: listings can be updated or deleted by their owner, and deleting a listing releases the linked item back to the \texttt{AVAILABLE} state instead of leaving it trapped in a reserved marketplace state.
 
 \subsection{Recommendation Pipeline}
-The recommendation service combines three signals. First, climate suitability measures whether a suggested look is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent magazine-derived fashion signals gathered from curated feeds. Third, user feedback introduces a small adaptive bias so the system becomes more responsive without becoming unstable. The recommendation endpoint remains publicly usable, while authenticated requests unlock saved recommendations, account settings, and more tailored chat assistance.
+The recommendation service combines two primary signals. First, climate suitability measures whether a suggested look is likely to be comfortable for the chosen location and time. Second, trend relevance applies a bounded boost or penalty from recent magazine-derived fashion signals gathered from curated feeds. The recommendation endpoint remains publicly usable, while authenticated requests unlock saved recommendations, account settings, and more tailored chat assistance.
 
 This design is especially useful in the target use case. A user getting ready quickly may know that the day is ``cold'' or ``rainy'', but not whether the weather will change by the time they leave. By consolidating these signals into one recommendation, the system reduces fragmented decision-making and supports comfort and self-presentation. The more original aspect of the design is that climate, trend, and preference signals are not merely displayed side by side; they are fused into one bounded scoring pipeline whose contribution can still be explained and defended.
 
@@ -151,7 +151,7 @@ This design is especially useful in the target use case. A user getting ready qu
 \end{figure}
 
 \subsection{Data Flow Through the System}
-The operational flow begins when the user sends a recommendation request, optionally after logging in. The client collects a location and time, the API resolves weather context, and trend services contribute recent magazine-style signals. A saved account location can prefill the form, while blank settings intentionally do not force an autofill. After scoring candidate looks, the API returns a JSON response containing the selected result, and logged-in users can store that recommendation with its weather, place, and time for later review. A separate chat-assistant flow can then turn the same context into more conversational styling advice.
+The operational flow begins when the user sends a recommendation request, optionally after logging in. The client collects a location and time, the API resolves weather context, and trend services contribute recent magazine-style signals. A saved account location can prefill the form, while blank settings intentionally do not force an autofill. After scoring candidate looks, the API returns a JSON response containing the selected result, and logged-in users can store that recommendation with its weather, place, time, stylist blurb, and a small deduped set of inspiration image URLs for later review. A separate chat-assistant flow can then turn the same context into more conversational styling advice. In the final frontend, that assistant is deliberately streamlined around preset activity selections rather than an unrestricted compose box, which reduces noisy prompts and keeps the guidance more consistent during demonstration.
 
 \subsection{Security, Error Handling, and Operational Choices}
 Security was addressed at multiple layers.
@@ -183,10 +183,10 @@ Evaluation was carried out in four ways:
   \item backend and frontend production builds to confirm deployable integrity,
   \item endpoint validation through Swagger and direct HTTP requests,
   \item automated unit tests for recommendation and account logic,
-  \item end-to-end flow checks across registration, authenticated recommendation, saved recommendations, feedback effects, password change, and chat-assisted guidance.
+  \item end-to-end flow checks across registration, authenticated recommendation, saved recommendations, password change, and chat-assisted guidance.
 \end{enumerate}
 
-The evaluation is qualitative rather than benchmark-driven: the main question is whether the recommender gives plausible, explainable, and secure recommendations under realistic usage conditions. In addition to unit tests, the assessed backend now includes integration coverage that verifies a concrete personalised-recommendation claim: anonymous requests receive no user boost, while authenticated requests can apply stored feedback history to the returned score.
+The evaluation is qualitative rather than benchmark-driven: the main question is whether the recommender gives plausible, explainable, and secure recommendations under realistic usage conditions. In addition to unit tests, the assessed backend includes integration coverage for authenticated recommendation behaviour, saved recommendation flows, and chat-assisted guidance.
 
 \subsection{Challenges, Lessons, and Future Work}
 The most difficult implementation issue was timezone correctness. Weather relevance depends on when and where the user intends to wear an outfit, so naive datetime handling produces incorrect recommendations. This also affected account settings, because the interface needed to display an obvious user-facing timezone label while still storing a robust underlying zone identifier. A second challenge was external data reliability, so the system had to fail clearly rather than silently.
@@ -216,28 +216,52 @@ Generative AI tools were used selectively for ideation, high-level alternative e
   \item early design exploration: AI was used creatively to explore multiple high-level alternatives and reframe the idea from a generic fashion app into a climate-aware, trend-aware recommendation engine with analytical depth,
   \item architectural narrowing: AI-assisted comparison of GraphQL, collaborative filtering, multi-objective scoring, and opaque LLM ranking helped justify the final explainable weighted approach because it was more auditable and more stable for a live demo,
   \item implementation critique: AI review highlighted that personalised recommendations were not defensible unless optional JWT context was wired through the endpoint, which led to the authenticated recommendation test scenario included in the backend suite,
-  \item submission hardening: AI critique exposed inconsistencies between the app, API docs, README, slides, and report, which were then manually corrected so the final deliverables present one coherent recommendation-led system.
+  \item submission hardening: AI was used to review code and deliverables against the mark scheme to ensure product is defensive in all assessed areas.
 \end{enumerate}
 
 \subsection*{Appendix Figures}
-The following excerpts show representative AI-assisted design and review interactions that directly influenced the final submission. They are included as visual evidence of creative design exploration, high-level alternative generation, implementation critique, and submission hardening.
+The following excerpts show representative AI-assisted design and review interactions that directly influenced the final submission. They are included as visual evidence of creative design exploration, high-level alternative generation, technical communication support, and report refinement.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.93\linewidth]{appendix-ai-1.png}
-\caption{Early-stage GenAI design exploration used to move the project from a vague fashion app idea toward a more original climate-aware, trend-aware, recommendation-led system with stronger analytical and architectural depth.}
+\includegraphics[width=0.93\linewidth]{photos/Brainstorm.png}
+\caption{Early-stage GenAI design exploration used to move the project from a vague fashion-app idea toward a more original climate-aware, trend-aware, recommendation-led system with stronger analytical and architectural depth. (ChatGPT)}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.93\linewidth]{appendix-ai-2.png}
-\caption{AI review used to reassess implementation quality after code changes, with emphasis on authenticated recommendation behaviour and testing sufficiency.}
+\includegraphics[width=0.93\linewidth]{photos/MermaidFormat.png}
+\caption{AI-assisted technical communication support used to refine a Mermaid-safe data-model diagram and improve how the system structure was presented in the submission. (ChatGPT)}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.93\linewidth]{appendix-ai-3.png}
-\caption{AI-assisted submission hardening used to identify and repair diagram clarity issues in the final technical report.}
+\includegraphics[width=0.93\linewidth]{photos/HarshlyMarked.png}
+\caption{AI-assisted report refinement used to improve appendix structure and clean up LaTeX presentation issues for the final PDF submission. (Codex)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.93\linewidth]{photos/GraphQLREST.png}
+\caption{AI-assisted GraphQL vs REST comparison to justify the final API design choice. (ChatGPT)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.93\linewidth]{photos/AppendixFormat.png}
+\caption{AI-assisted Appendix refinement to ensure all sections are properly formatted and aligned with the markscheme. (ChatGPT)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.93\linewidth]{photos/LaTexFormat.png}
+\caption{AI-assisted LaTeX formatting to ensure proper document structure and presentation. (ChatGPT)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.93\linewidth]{photos/LaTexResult.png}
+\caption{AI-assisted LaTeX formatting result. (ChatGPT)}
 \end{figure}
 
 \subsection*{References}

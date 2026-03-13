@@ -57,6 +57,7 @@ type SavedRecommendation = {
     occasion?: string;
     styleTags?: string[];
     imageUrls?: string[];
+    styleBlurb?: string;
     items?: {
       id: string;
       material?: string;
@@ -135,6 +136,68 @@ async function api<T>(
   return res.json();
 }
 
+function imageKey(url: string) {
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname
+      .toLowerCase()
+      .split('/')
+      .filter(Boolean)
+      .filter((part) => !/^\d+x$/.test(part) && part !== 'originals' && part !== 'original');
+    return parts
+      .slice(-4)
+      .join('/')
+      .replace(/[-_][a-z0-9]{6,}(?=\.)/g, '')
+      .replace(/(crop|rs|fit|smart)[-_]?[a-z0-9-]*/g, '');
+  } catch {
+    return url.split('?')[0].toLowerCase();
+  }
+}
+
+function SavedThumbnailStrip({
+  imageUrls,
+  searchQuery,
+}: {
+  imageUrls: string[];
+  searchQuery: string;
+}) {
+  const [hidden, setHidden] = useState<Record<string, boolean>>({});
+
+  const visible = Array.from(
+    new Map(
+      imageUrls
+        .filter(Boolean)
+        .map((imageUrl) => [imageKey(imageUrl), imageUrl] as const),
+    ).values(),
+  )
+    .filter((imageUrl) => !hidden[imageUrl])
+    .slice(0, 2);
+
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="saved-thumbs" aria-label="Saved outfit inspiration">
+      {visible.map((imageUrl, index) => (
+        <a
+          key={`${imageUrl}-${index}`}
+          className="saved-thumb"
+          href={`https://www.pinterest.com/search/pins/?q=${encodeURIComponent(searchQuery)}`}
+          target="_blank"
+          rel="noreferrer"
+          title="Open Pinterest inspiration"
+        >
+          <img
+            src={`${API_BASE}/trends/pinterest/proxy?url=${encodeURIComponent(imageUrl)}`}
+            alt=""
+            loading="lazy"
+            onError={() => setHidden((prev) => ({ ...prev, [imageUrl]: true }))}
+          />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const CHAT_HISTORY_KEY = 'sf_chat_history';
   const [username, setUsername] = useState('');
@@ -153,6 +216,7 @@ function App() {
   const [status, setStatus] = useState('');
   const [climate, setClimate] = useState<any | null>(null);
   const [recImages, setRecImages] = useState<string[]>([]);
+  const [styleBlurb, setStyleBlurb] = useState('');
   const [imgLoadStart, setImgLoadStart] = useState<number | null>(null);
   const [imgElapsed, setImgElapsed] = useState<number>(0);
   const [loadingRec, setLoadingRec] = useState(false);
@@ -160,9 +224,9 @@ function App() {
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [savedInspo, setSavedInspo] = useState<Record<string, string[]>>({});
   const [savedViewLoading, setSavedViewLoading] = useState(false);
+  const [savedOverride, setSavedOverride] = useState<boolean | null>(null);
   const [activeView, setActiveView] = useState<'home' | 'saved'>('home');
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatDraft, setChatDraft] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loadingChat, setLoadingChat] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({
@@ -274,21 +338,6 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [authed, token, settings.homeLocation]);
 
-  useEffect(() => {
-    if (!token) {
-      setSavedRecommendations([]);
-      setActiveView('home');
-      return;
-    }
-    setSavedViewLoading(true);
-    api<SavedRecommendation[]>('/outfits/saved', {}, token)
-      .then((res) => setSavedRecommendations(res))
-      .catch(() => {
-        setSavedRecommendations([]);
-      })
-      .finally(() => setSavedViewLoading(false));
-  }, [token]);
-
   // theme persist
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -302,7 +351,16 @@ function App() {
     try {
       await action();
     } catch (e: any) {
-      setStatus(`Error: ${e.message}`);
+      const message = String(e?.message || 'Unknown error');
+      if (message.includes('Unauthorized') || message.includes('401')) {
+        setToken(null);
+        setSavedRecommendations([]);
+        setSavedInspo({});
+        setShowAuth(true);
+        setStatus('Error: your session expired. Please log in again.');
+        return;
+      }
+      setStatus(`Error: ${message}`);
     }
   }, []);
 
@@ -313,31 +371,39 @@ function App() {
     return 'info';
   }, [status]);
 
+  const normaliseRecommendedFor = useCallback((value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toISOString();
+  }, []);
+
+  const recommendationIdentity = useCallback(
+    (outfitId: string | null | undefined, loc: string | undefined, recommendedFor?: string | null) =>
+      JSON.stringify({
+        outfitId: outfitId ?? null,
+        location: loc ?? '',
+        recommendedFor: normaliseRecommendedFor(recommendedFor),
+      }),
+    [normaliseRecommendedFor],
+  );
+
   const recommendationKey = useMemo(() => {
     if (!recommendation || !location) return null;
-    return JSON.stringify({
-      outfitId: recommendation.outfit?.id ?? null,
+    return recommendationIdentity(
+      recommendation.outfit?.id ?? null,
       location,
-      recommendedFor: climate?.validFor ?? datetime,
-    });
-  }, [recommendation, location, climate?.validFor, datetime]);
+      climate?.validFor ?? datetime,
+    );
+  }, [recommendation, location, climate?.validFor, datetime, recommendationIdentity]);
 
   const currentRecommendationSaved = useMemo(() => {
     if (!recommendationKey) return false;
+    if (savedOverride !== null) return savedOverride;
     return savedRecommendations.some((saved) =>
-      JSON.stringify({
-        outfitId: saved.outfitId ?? null,
-        location: saved.location,
-        recommendedFor: saved.recommendedFor,
-      }) === recommendationKey,
+      recommendationIdentity(saved.outfitId ?? null, saved.location, saved.recommendedFor) === recommendationKey,
     );
-  }, [savedRecommendations, recommendationKey]);
-
-  const refreshSavedRecommendations = useCallback(async () => {
-    if (!token) return;
-    const res = await api<SavedRecommendation[]>('/outfits/saved', {}, token);
-    setSavedRecommendations(res);
-  }, [token]);
+  }, [savedRecommendations, recommendationKey, recommendationIdentity, savedOverride]);
 
   const savedRecommendationTags = useCallback((saved: SavedRecommendation) => {
     const tags = [
@@ -415,6 +481,58 @@ function App() {
     const readable = tags.slice(0, 3).join(', ');
     return `Trending tags: ${readable}`;
   };
+
+  const buildStyleBlurb = useCallback((rec: any, currentClimate: any | null) => {
+    const tags = [
+      ...(rec?.outfit?.styleTags ?? []),
+      ...((rec?.outfit?.items ?? []).flatMap((entry: any) => entry.item?.styleTags ?? [])),
+    ]
+      .filter(Boolean)
+      .map((tag: string) => tag.toLowerCase())
+      .slice(0, 4);
+    const topItem = rec?.outfit?.items?.[0]?.item;
+    const material = topItem?.material?.toLowerCase();
+    const temp = Number(currentClimate?.temperatureC ?? 14);
+    const precip = Number(currentClimate?.precipProb ?? 0);
+    const wind = Number(currentClimate?.windKph ?? 0);
+    const conditions = (currentClimate?.conditions || '').toLowerCase();
+    const cold = temp < 10;
+    const mild = temp >= 10 && temp < 18;
+    const wet = precip >= 35 || /(rain|shower|storm|sleet|snow)/.test(conditions);
+    const windy = wind > 25;
+
+    const tagText = tags.length
+      ? `The strongest style cues here are ${tags.slice(0, 3).join(', ')}`
+      : 'The strongest style cue here is keeping the look clean and versatile';
+
+    const silhouette = /(tailored|smart|formal)/.test(tags.join(' '))
+      ? 'so I would keep the silhouette polished and slightly structured'
+      : /(streetwear|casual|jacket|denim|puffer)/.test(tags.join(' '))
+        ? 'so I would keep the silhouette relaxed and layer-led'
+        : 'so I would keep the silhouette simple and easy to wear';
+
+    const fabricText = material
+      ? `Build around ${material} as the main texture`
+      : cold
+        ? 'Build around knitwear, wool, or heavier cotton textures'
+        : mild
+          ? 'Build around mid-weight cottons, soft knits, or light denim textures'
+          : 'Build around breathable cottons and lighter layers';
+
+    const weatherFit = wet
+      ? 'Because the forecast could turn wet, add a light waterproof or weather-ready outer layer rather than anything delicate.'
+      : windy
+        ? 'Because it looks breezy, keep one extra outer layer so the outfit still feels intentional outside.'
+        : cold
+          ? 'Because it is on the colder side, make sure one warm outer layer anchors the whole look.'
+          : 'The weather is fairly manageable, so keep the finishing layer light and easy through the day.';
+
+    const avoidText = wet
+      ? 'I would avoid suede, airy knits, or anything that only works in completely dry conditions.'
+      : 'I would still avoid pieces that feel too flimsy for the conditions, especially if the temperature drops later.';
+
+    return `${tagText}, ${silhouette}. ${fabricText}. ${weatherFit} ${avoidText}`;
+  }, []);
 
   const passwordPolicyOk = (value: string) => /^(?=.*[A-Z])(?=.*\d).{7,}$/.test(value);
 
@@ -518,40 +636,77 @@ function App() {
       .sort((a, b) => a.r - b.r)
       .map(({ v }) => v);
 
+  const dedupeImageUrls = useCallback((urls: string[]) => {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const url of urls) {
+      if (!url) continue;
+      const key = imageKey(url);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(url);
+      if (deduped.length >= 2) break;
+    }
+    return deduped;
+  }, []);
+
   const fetchImagesForTags = async (tags: string[], season: string, year: number) => {
-    const want = tags.length ? tags.slice(0, 2) : ['puffer', 'casual'];
-    const queries = want.map((tag) => `${tag} outfit inspiration ${season} ${year}`);
-    const results = await Promise.all(
-      queries.map(async (query) => {
-        try {
-          const res = await api<{ images: { url: string }[] }>(`/trends/pinterest?q=${encodeURIComponent(query)}`);
-          return (res.images || []).map((i) => i.url);
-        } catch {
-          return [] as string[];
-        }
-      }),
-    );
-    const pooled = results.flat().filter((u) => {
+    const want = Array.from(new Set(tags.filter(Boolean).map((tag) => tag.toLowerCase()))).slice(0, 3);
+    const queries = [
+      `${(want.length ? want.join(' ') : 'casual jacket')} outfit inspiration ${season} ${year}`,
+      ...want.map((tag) => `${tag} outfit inspiration ${season} ${year}`),
+    ];
+
+    const collected: string[] = [];
+    const seen = new Set<string>();
+    const perQuery = new Map<string, string[]>();
+
+    const keyForUrl = (url: string) => {
+      const clean = url.split('?')[0].toLowerCase();
+      const segments = clean.split('/');
+      const file = segments.pop() || clean;
+      const parent = segments.pop() || '';
+      const simplified = file.replace(/[-_][a-z0-9]{6,}(?=\.)/g, '');
+      return `${parent}/${simplified}`;
+    };
+
+    const isUsable = (u: string) => {
       const lower = (u || '').toLowerCase();
       if (!lower.includes('pinimg.com')) return false;
       if (!(lower.includes('/736x/') || lower.includes('/original'))) return false;
       if (/(bag|handbag|purse|jewellery|ring|bracelet)/i.test(lower)) return false;
       return /\.(jpe?g|png|webp)$/i.test(lower);
-    });
-    const shuffled = shuffle(pooled);
-    const seenFiles = new Set<string>();
-    const deduped: string[] = [];
-    for (const url of shuffled) {
-      const clean = url.split('?')[0];
-      const parts = clean.split('/');
-      const file = parts.pop() || clean;
-      const stem = file.toLowerCase();
-      if (seenFiles.has(stem)) continue;
-      seenFiles.add(stem);
-      deduped.push(url);
-      if (deduped.length >= 4) break;
+    };
+
+    for (const query of queries) {
+      try {
+        const res = await api<{ images: { url: string }[] }>(`/trends/pinterest?q=${encodeURIComponent(query)}`);
+        const urls = shuffle((res.images || []).map((i) => i.url).filter(isUsable));
+        const uniqueForQuery: string[] = [];
+        for (const url of urls) {
+          const key = keyForUrl(url);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          uniqueForQuery.push(url);
+          if (uniqueForQuery.length >= 2) break;
+        }
+        perQuery.set(query, uniqueForQuery);
+      } catch {
+        perQuery.set(query, []);
+      }
     }
-    return deduped.slice(0, 4);
+
+    for (let round = 0; round < 2 && collected.length < 4; round++) {
+      for (const query of queries) {
+        const urls = perQuery.get(query) || [];
+        if (urls[round]) {
+          collected.push(urls[round]);
+          if (collected.length >= 4) break;
+        }
+      }
+    }
+
+    return collected.slice(0, 4);
   };
 
   const fetchSavedInspiration = useCallback(async (saved: SavedRecommendation) => {
@@ -575,26 +730,85 @@ function App() {
     }
   }, [savedRecommendationTags]);
 
-  useEffect(() => {
-    if (activeView !== 'saved' || savedRecommendations.length === 0) return;
-    const missing = savedRecommendations.filter((saved) => savedInspo[saved.id] === undefined);
-    if (missing.length === 0) return;
+  const preloadSavedImages = useCallback(async (urls: string[]) => {
+    const unique = Array.from(new Set(urls.filter(Boolean)));
+    await Promise.allSettled(
+      unique.map(
+        (url) =>
+          new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = `${API_BASE}/trends/pinterest/proxy?url=${encodeURIComponent(url)}`;
+          }),
+      ),
+    );
+  }, []);
 
-    Promise.all(
-      missing.map(async (saved) => ({
-        id: saved.id,
-        images: await fetchSavedInspiration(saved),
-      })),
-    ).then((results) => {
-      setSavedInspo((prev) => {
-        const next = { ...prev };
-        for (const result of results) {
-          next[result.id] = result.images;
+  const refreshSavedRecommendations = useCallback(async () => {
+    if (!token) return;
+    const res = await api<SavedRecommendation[]>('/outfits/saved', {}, token);
+
+    const fetchedFallbacks = new Map<string, string[]>();
+    const needsImages = res.filter((saved) => !(saved.outfitSnapshot.imageUrls?.length));
+    if (needsImages.length > 0) {
+      const fetched = await Promise.all(
+        needsImages.map(async (saved) => ({
+          id: saved.id,
+          images: dedupeImageUrls(await fetchSavedInspiration(saved)),
+        })),
+      );
+      for (const result of fetched) fetchedFallbacks.set(result.id, result.images);
+    }
+
+    const urlsToPreload = res.flatMap((saved) =>
+      (saved.outfitSnapshot.imageUrls?.length
+        ? saved.outfitSnapshot.imageUrls
+        : fetchedFallbacks.get(saved.id) || []
+      ).slice(0, 2),
+    );
+    await preloadSavedImages(urlsToPreload);
+
+    setSavedRecommendations(res);
+    setSavedInspo((prev) => {
+      const next = { ...prev };
+      for (const saved of res) {
+        if (saved.outfitSnapshot.imageUrls?.length) {
+          delete next[saved.id];
         }
-        return next;
-      });
+      }
+      for (const [id, images] of fetchedFallbacks.entries()) {
+        next[id] = images;
+      }
+      return next;
     });
-  }, [activeView, savedRecommendations, savedInspo, fetchSavedInspiration]);
+  }, [token, fetchSavedInspiration, dedupeImageUrls, preloadSavedImages]);
+
+  useEffect(() => {
+    if (!token) {
+      setSavedRecommendations([]);
+      setSavedInspo({});
+      setActiveView('home');
+      return;
+    }
+    setSavedViewLoading(true);
+    refreshSavedRecommendations()
+      .catch(() => {
+        setSavedRecommendations([]);
+        setSavedInspo({});
+      })
+      .finally(() => setSavedViewLoading(false));
+  }, [token, refreshSavedRecommendations]);
+
+  useEffect(() => {
+    if (activeView !== 'saved' || !token) return;
+    if (savedRecommendations.length === 0) setSavedViewLoading(true);
+    refreshSavedRecommendations()
+      .catch(() => {
+        // keep existing saved view if refresh fails
+      })
+      .finally(() => setSavedViewLoading(false));
+  }, [activeView, token, refreshSavedRecommendations, savedRecommendations.length]);
 
   // track elapsed load time
   useEffect(() => {
@@ -678,6 +892,10 @@ function App() {
     }).format(new Date(iso));
   };
 
+  useEffect(() => {
+    setSavedOverride(null);
+  }, [recommendationKey]);
+
   const currentRecommendationPayload = useMemo(() => {
     if (!recommendation || !location) return null;
     const recommendedFor = climate?.validFor ?? datetime;
@@ -701,7 +919,8 @@ function App() {
             : recommendation.outfit?.items
                 ?.flatMap((entry: any) => entry.item?.styleTags ?? [])
                 .slice(0, 8) ?? [],
-        imageUrls: recImages.slice(0, 2),
+        imageUrls: dedupeImageUrls(recImages),
+        styleBlurb: styleBlurb || undefined,
         items: (recommendation.outfit?.items ?? []).map((entry: any) => ({
           id: entry.item?.id ?? entry.itemId,
           material: entry.item?.material,
@@ -737,7 +956,7 @@ function App() {
                   setShowAuth((v) => authView !== 'login' || !v);
                 }}
               >
-                Login
+                Log in
               </button>
               <button
                 className="btn"
@@ -771,7 +990,7 @@ function App() {
       {showAuth && (
         <div className="auth-panel">
           <div className="panel-head">
-            <strong>{authed ? 'Account' : authView === 'login' ? 'Login' : 'Create account'}</strong>
+            <strong>{authed ? 'Account' : authView === 'login' ? 'Log in' : 'Create account'}</strong>
             <button className="close" onClick={() => setShowAuth(false)}>
               ×
             </button>
@@ -823,7 +1042,7 @@ function App() {
                     })
                   }
                 >
-                  {authView === 'login' ? 'Login' : 'Register & Login'}
+                  {authView === 'login' ? 'Log in' : 'Register & Login'}
                 </button>
               </div>
               <p className="hint">
@@ -1105,8 +1324,9 @@ function App() {
                       token || undefined,
                     );
                     setRecommendation(res);
+                    setStyleBlurb(buildStyleBlurb(res, snapshot));
                     const tags = res.outfit?.items?.[0]?.item?.styleTags || [];
-                    const { season, year } = seasonForDate(datetime);
+                    const { season, year } = seasonForDate(effectiveDt);
                     const images = await fetchImagesForTags(tags, season, year);
                     setRecImages(images);
                     setStatus('Done: ready');
@@ -1138,12 +1358,15 @@ function App() {
                         },
                         token || undefined,
                       );
-                      await refreshSavedRecommendations();
+                      setSavedOverride(res.saved);
                       setStatus(
                         res.saved
                           ? 'Done: recommendation saved to your favourites'
                           : 'Done: recommendation removed from your favourites',
                       );
+                      refreshSavedRecommendations().catch(() => {
+                        // keep current view responsive even if saved image prep is slow
+                      });
                     } finally {
                       setSavingOutfit(false);
                     }
@@ -1156,9 +1379,15 @@ function App() {
                 {savingOutfit ? (
                   '...'
                 ) : currentRecommendationSaved ? (
-                  <i className="fa-solid fa-heart"></i>
+                  <>
+                    <i className="fa-solid fa-heart"></i>
+                    <span>Saved</span>
+                  </>
                 ) : (
-                  <i className="fa-regular fa-heart"></i>
+                  <>
+                    <i className="fa-regular fa-heart"></i>
+                    <span>Save</span>
+                  </>
                 )}
               </button>
             )}
@@ -1166,7 +1395,12 @@ function App() {
 
           {recommendation && !loadingRec && (
             <div className="chat-box" style={{ marginTop: '1rem' }}>
-              <p className="hint" style={{ marginBottom: '0.4rem' }}>
+              {styleBlurb && (
+                <div className="stylist-blurb">
+                  <strong>Stylist note:</strong> {styleBlurb}
+                </div>
+              )}
+              <p className="hint" style={{ marginBottom: authed ? 0 : '0.4rem' }}>
                 Need extra help? Use the help chat in the bottom-right for detailed outfit guidance.
               </p>
               {!authed && (
@@ -1288,92 +1522,97 @@ function App() {
 
             {!savedViewLoading && savedRecommendations.length > 0 && (
               <div className="saved-grid">
-                {savedRecommendations.map((saved) => (
-                  <article key={saved.id} className="saved-card">
-                    <div className="saved-card-head">
-                      <div>
-                        <div className="saved-title">Saved recommendation</div>
-                        <div className="saved-meta">
-                          Saved for {saved.location} on {formatLocalHuman(saved.recommendedFor, saved.location)}
+                {savedRecommendations.map((saved) => {
+                  const inspirationImages = (saved.outfitSnapshot.imageUrls?.length
+                    ? saved.outfitSnapshot.imageUrls
+                    : savedInspo[saved.id] || []).slice(0, 2);
+                  const { season, year } = seasonForDate(saved.recommendedFor);
+                  const thumbSearch = `${savedRecommendationTags(saved).slice(0, 2).join(' ')} outfit inspiration ${season} ${year}`;
+
+                  return (
+                    <article key={saved.id} className="saved-card">
+                      <div className="saved-card-top">
+                        <div className="saved-card-main">
+                          <div className="saved-card-head">
+                            <div>
+                              <div className="saved-title">Saved recommendation</div>
+                              <div className="saved-meta">
+                                Saved for {saved.location} on {formatLocalHuman(saved.recommendedFor, saved.location)}
+                              </div>
+                            </div>
+                            <button
+                              className="btn ghost saved-remove save-heart saved"
+                              onClick={() =>
+                                handle(async () => {
+                                  setSavingOutfit(true);
+                                  try {
+                                    await api(
+                                      '/outfits/saved/toggle',
+                                      {
+                                        method: 'POST',
+                                        body: JSON.stringify({
+                                          recommendedFor: saved.recommendedFor,
+                                          location: saved.location,
+                                          weather: saved.weatherSummary,
+                                          outfit: saved.outfitSnapshot,
+                                        }),
+                                      },
+                                      token || undefined,
+                                    );
+                                    setSavedRecommendations((prev) => prev.filter((entry) => entry.id !== saved.id));
+                                    setSavedInspo((prev) => {
+                                      const next = { ...prev };
+                                      delete next[saved.id];
+                                      return next;
+                                    });
+                                    setSavedOverride(
+                                      recommendationIdentity(saved.outfitId ?? null, saved.location, saved.recommendedFor) === recommendationKey
+                                        ? false
+                                        : null,
+                                    );
+                                    setStatus('Done: saved outfit removed');
+                                    refreshSavedRecommendations().catch(() => {
+                                      // keep current view responsive even if saved image prep is slow
+                                    });
+                                  } finally {
+                                    setSavingOutfit(false);
+                                  }
+                                })
+                              }
+                              aria-label="Unlike this look"
+                              title="Unlike this look"
+                            >
+                              <i className="fa-solid fa-heart"></i>
+                            </button>
+                          </div>
+                          <div className="saved-card-body">
+                            <div className="saved-copy">
+                              <div className="saved-weather">
+                                <strong>Weather at the time:</strong> {saved.weatherSummary.temperatureC ?? '–'}°C •{' '}
+                                {precipWords(saved.weatherSummary.precipProb, saved.weatherSummary.conditions)} •{' '}
+                                {windWords(saved.weatherSummary.windKph)} • {saved.weatherSummary.conditions ?? '—'}
+                              </div>
+                              {saved.outfitSnapshot.styleBlurb && (
+                                <div className="stylist-blurb saved-blurb">
+                                  <strong>Stylist note:</strong> {saved.outfitSnapshot.styleBlurb}
+                                </div>
+                              )}
+                            </div>
+                            <SavedThumbnailStrip imageUrls={inspirationImages} searchQuery={thumbSearch} />
+                          </div>
+                          <div className="saved-section-label">Recommended items</div>
+                          <div className="saved-tags">
+                            {savedRecommendationTags(saved).map((tag) => (
+                              <span key={tag} className="pill pill-soft">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      <button
-                        className="btn ghost saved-remove save-heart saved"
-                        onClick={() =>
-                          handle(async () => {
-                            setSavingOutfit(true);
-                            try {
-                              await api(
-                                '/outfits/saved/toggle',
-                                {
-                                  method: 'POST',
-                                  body: JSON.stringify({
-                                    recommendedFor: saved.recommendedFor,
-                                    location: saved.location,
-                                    weather: saved.weatherSummary,
-                                    outfit: saved.outfitSnapshot,
-                                  }),
-                                },
-                                token || undefined,
-                              );
-                              await refreshSavedRecommendations();
-                              setStatus('Done: saved outfit removed');
-                            } finally {
-                              setSavingOutfit(false);
-                            }
-                          })
-                        }
-                        aria-label="Unlike this look"
-                        title="Unlike this look"
-                      >
-                        <i className="fa-solid fa-heart"></i>
-                      </button>
-                    </div>
-                    <div className="saved-weather">
-                      <strong>Weather at the time:</strong> {saved.weatherSummary.temperatureC ?? '–'}°C •{' '}
-                      {precipWords(saved.weatherSummary.precipProb, saved.weatherSummary.conditions)} •{' '}
-                      {windWords(saved.weatherSummary.windKph)} • {saved.weatherSummary.conditions ?? '—'}
-                    </div>
-                    <div className="saved-section-label">Recommended items</div>
-                    <div className="saved-tags">
-                      {savedRecommendationTags(saved).map((tag) => (
-                        <span key={tag} className="pill pill-soft">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    {!!(saved.outfitSnapshot.imageUrls?.length || savedInspo[saved.id]?.length) && (
-                      <>
-                        <div className="saved-section-label">Inspiration</div>
-                        <div className="saved-inspo-row">
-                          {(saved.outfitSnapshot.imageUrls?.length
-                            ? saved.outfitSnapshot.imageUrls
-                            : savedInspo[saved.id] || []
-                          )
-                            .slice(0, 2)
-                            .map((imgUrl, idx) => (
-                            <a
-                              key={`${saved.id}-${idx}`}
-                              className="saved-inspo-tile"
-                              href={`https://www.pinterest.com/search/pins/?q=${encodeURIComponent(
-                                `${savedRecommendationTags(saved).slice(0, 2).join(' ')} outfit inspiration`,
-                              )}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Pinterest inspiration"
-                            >
-                              <img
-                                src={`${API_BASE}/trends/pinterest/proxy?url=${encodeURIComponent(imgUrl)}`}
-                                alt="Saved outfit inspiration"
-                                loading="lazy"
-                              />
-                            </a>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -1386,7 +1625,7 @@ function App() {
         <div className="footer-col">
           <p className="foot-label">Data Use</p>
           <p className="foot-text">
-            Outfits and weather snapshots you add stay in your account. Trends come from curated news feeds. Used only to suggest outfits and tune recommendations.
+            Log in to save outfits and weather snapshots to access at any time. Trends come from curated news feeds. Used only to suggest outfits and tune recommendations.
           </p>
         </div>
         <div className="footer-col">
@@ -1472,7 +1711,45 @@ function App() {
             <button
               key={chip}
               className="btn ghost"
-              onClick={() => setChatDraft((v) => (v ? `${v} ${chip}` : chip))}
+              disabled={!location || loadingChat}
+              onClick={() =>
+                handle(async () => {
+                  if (!location) {
+                    setStatus('Error: choose location first');
+                    return;
+                  }
+                  const userMsg = chip;
+                  const nowIso = new Date().toISOString();
+                  setChatMessages((prev) => [...prev, { role: 'user', text: userMsg, at: nowIso }]);
+                  setLoadingChat(true);
+                  try {
+                    const res = await api<ChatResult>(
+                      '/chat/recommendation',
+                      {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          location,
+                          datetime: datetime || undefined,
+                          message: userMsg,
+                          context: chatMessages
+                            .filter((m) => m.role === 'user')
+                            .slice(-3)
+                            .map((m) => m.text)
+                            .join(' | '),
+                        }),
+                      },
+                      token || undefined,
+                    );
+                    const assistantText = res.message || 'Here is a tailored recommendation for your plan.';
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { role: 'assistant', text: assistantText, at: new Date().toISOString() },
+                    ]);
+                  } finally {
+                    setLoadingChat(false);
+                  }
+                })
+              }
               type="button"
             >
               {chip}
@@ -1482,7 +1759,7 @@ function App() {
         <div className="chat-thread">
           {chatMessages.length === 0 && (
             <div className="chat-bubble assistant">
-              Tell me what you are doing today and I will suggest outfit pieces, colours, patterns, and materials.
+              Pick an activity and I will suggest a streamlined outfit direction with colours, footwear, and fabric guidance.
             </div>
           )}
           {chatMessages.map((m, idx) => (
@@ -1491,59 +1768,6 @@ function App() {
             </div>
           ))}
           {loadingChat && <div className="chat-bubble assistant">Thinking…</div>}
-        </div>
-        <div className="chat-widget-compose">
-          <textarea
-            className="input"
-            placeholder="Type your message..."
-            value={chatDraft}
-            onChange={(e) => setChatDraft(e.target.value)}
-          />
-          <button
-            className="btn"
-            disabled={!chatDraft.trim() || !location || loadingChat}
-            onClick={() =>
-              handle(async () => {
-                if (!location) {
-                  setStatus('Error: choose location first');
-                  return;
-                }
-                const userMsg = chatDraft.trim();
-                const nowIso = new Date().toISOString();
-                setChatMessages((prev) => [...prev, { role: 'user', text: userMsg, at: nowIso }]);
-                setChatDraft('');
-                setLoadingChat(true);
-                try {
-                  const res = await api<ChatResult>(
-                    '/chat/recommendation',
-                    {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        location,
-                        datetime: datetime || undefined,
-                        message: userMsg,
-                        context: chatMessages
-                          .filter((m) => m.role === 'user')
-                          .slice(-3)
-                          .map((m) => m.text)
-                          .join(' | '),
-                      }),
-                    },
-                    token || undefined,
-                  );
-                  const assistantText = res.message || 'Here is a tailored recommendation for your plan.';
-                  setChatMessages((prev) => [
-                    ...prev,
-                    { role: 'assistant', text: assistantText, at: new Date().toISOString() },
-                  ]);
-                } finally {
-                  setLoadingChat(false);
-                }
-              })
-            }
-          >
-            Send
-          </button>
         </div>
       </div>
     )}

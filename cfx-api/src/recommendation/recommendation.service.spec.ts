@@ -127,6 +127,43 @@ describe('RecommendationService', () => {
     expect(result.score.items[0].userBoost).toBe(0);
   });
 
+  it('falls back to the shared outfit pool when the authenticated user has no outfits yet', async () => {
+    climateService.latest.mockResolvedValue({
+      id: 'climate-1',
+      temperatureC: 10,
+      precipProb: 15,
+      windKph: 4,
+    });
+    trendsService.topTagsRecent.mockResolvedValue([{ tag: 'coat', volume: 80, sentiment: 0.3 }]);
+    prisma.outfit.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'outfit-1',
+          name: 'Fallback fit',
+          occasion: 'commute',
+          styleTags: ['casual'],
+          items: [
+            {
+              item: {
+                id: 'item-1',
+                insulation: 0.6,
+                waterproof: 0.5,
+                material: 'cotton coat',
+                styleTags: ['coat'],
+              },
+            },
+          ],
+        },
+      ]);
+
+    const result = await service.recommendOutfit('user-1', 'Leeds');
+
+    expect(prisma.outfit.findMany).toHaveBeenCalledTimes(2);
+    expect(feedbackService.userAverage).not.toHaveBeenCalled();
+    expect(result.outfit.id).toBe('outfit-1');
+  });
+
   it('falls back to general trend tags when recent news trends are unavailable', async () => {
     climateService.latest.mockResolvedValue({
       id: 'climate-1',
@@ -164,6 +201,60 @@ describe('RecommendationService', () => {
     expect(trendsService.topTags).toHaveBeenCalled();
     expect(result.score.items[0].trendBoost).toBeGreaterThan(0);
   });
+
+  it('prefers natural fibres over polyester when weather does not require technical fabric', async () => {
+    climateService.latest.mockResolvedValue({
+      id: 'climate-1',
+      temperatureC: 12,
+      precipProb: 5,
+      windKph: 6,
+    });
+    feedbackService.userAverage.mockResolvedValue({ avg: null, count: 0 });
+    trendsService.topTagsRecent.mockResolvedValue([]);
+    trendsService.topTags.mockResolvedValue([]);
+    prisma.outfit.findMany.mockResolvedValue([
+      {
+        id: 'outfit-1',
+        name: 'Polyester fit',
+        occasion: 'commute',
+        styleTags: ['casual'],
+        items: [
+          {
+            item: {
+              id: 'item-1',
+              insulation: 0.5,
+              waterproof: 0.2,
+              material: 'polyester',
+              styleTags: ['jacket'],
+            },
+          },
+        ],
+      },
+      {
+        id: 'outfit-2',
+        name: 'Wool fit',
+        occasion: 'commute',
+        styleTags: ['casual'],
+        items: [
+          {
+            item: {
+              id: 'item-2',
+              insulation: 0.5,
+              waterproof: 0.2,
+              material: 'wool',
+              styleTags: ['jacket'],
+            },
+          },
+        ],
+      },
+    ]);
+
+    const result = await service.recommendOutfit('user-1', 'Leeds');
+
+    expect(result.outfit.id).toBe('outfit-2');
+    expect(result.score.items[0].materialQuality).toBeGreaterThanOrEqual(0);
+  });
+
 
   it('applies custom preference boosts and penalties', async () => {
     climateService.latest.mockResolvedValue({

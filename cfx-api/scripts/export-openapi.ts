@@ -8,7 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: false });
 
   const config = new DocumentBuilder()
-    .setTitle('Circular Fashion Exchange API')
+    .setTitle('Style Forecast API')
     .setDescription('OpenAPI export')
     .setVersion('0.2.0')
     .addBearerAuth()

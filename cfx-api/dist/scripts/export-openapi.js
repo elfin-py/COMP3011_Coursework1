@@ -8,7 +8,7 @@ const app_module_1 = require("../src/app.module");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule, { logger: false });
     const config = new swagger_1.DocumentBuilder()
-        .setTitle('Circular Fashion Exchange API')
+        .setTitle('Style Forecast API')
         .setDescription('OpenAPI export')
         .setVersion('0.2.0')
         .addBearerAuth()

@@ -65,7 +65,8 @@ export declare class OutfitsController {
         name: string;
         occasion: string | null;
     })[]>;
-    findSaved(user: any): import("@prisma/client").Prisma.PrismaPromise<{
+    findSaved(user: any): Promise<{
+        outfitSnapshot: any;
         id: string;
         createdAt: Date;
         userId: string;
@@ -74,7 +75,6 @@ export declare class OutfitsController {
         recommendedFor: Date;
         outfitName: string;
         weatherSummary: import("@prisma/client/runtime/client").JsonValue;
-        outfitSnapshot: import("@prisma/client/runtime/client").JsonValue;
     }[]>;
     logUsage(user: any, id: string, dto: LogUsageDto): Promise<{
         id: string;

@@ -31,24 +31,27 @@ let ChatService = ChatService_1 = class ChatService {
         const cleanContext = this.cleanUserMessage(dto.context || '');
         const combinedMessage = `${cleanContext} ${cleanMessage}`.trim();
         const userId = await this.tryExtractUserId(authHeader);
-        const extracted = await this.extractPreferences(combinedMessage || cleanMessage);
+        const extractedCurrent = await this.extractPreferences(cleanMessage || combinedMessage);
+        const extractedContext = combinedMessage && combinedMessage !== cleanMessage
+            ? await this.extractPreferences(combinedMessage)
+            : extractedCurrent;
         const merged = {
-            occasion: dto.occasion || extracted.occasion,
-            activity: dto.activity || extracted.activity,
+            occasion: dto.occasion || extractedCurrent.occasion || extractedContext.occasion,
+            activity: dto.activity || extractedCurrent.activity || extractedContext.activity,
             styleTags: [
-                ...new Set([...(dto.styleTags || []), ...(extracted.styleTags || [])]),
+                ...new Set([...(dto.styleTags || []), ...(extractedCurrent.styleTags || []), ...(extractedContext.styleTags || [])]),
             ],
             avoidTags: [
-                ...new Set([...(dto.avoidTags || []), ...(extracted.avoidTags || [])]),
+                ...new Set([...(dto.avoidTags || []), ...(extractedCurrent.avoidTags || []), ...(extractedContext.avoidTags || [])]),
             ],
-            preferences: extracted.preferences || [],
+            preferences: extractedCurrent.preferences?.length ? extractedCurrent.preferences : (extractedContext.preferences || []),
         };
         const result = await this.recommendationService.recommendOutfit(userId, dto.location, dto.datetime, merged);
         const topItem = result.outfit?.items?.[0]?.item;
         const tags = (topItem?.styleTags || result.outfit?.styleTags || []).slice(0, 4);
         const material = topItem?.material || 'layer-friendly fabric';
         const climate = await this.climateService.latest(dto.location, dto.datetime);
-        const weatherStyle = this.weatherStyleGuidance(climate);
+        const weatherStyle = this.weatherStyleGuidance(climate, merged, cleanMessage, cleanContext);
         const narrative = await this.generateAssistantReply(dto, merged, tags, material, cleanMessage, cleanContext, weatherStyle);
         return {
             recommendation: result,
@@ -95,6 +98,8 @@ let ChatService = ChatService_1 = class ChatService {
             const prompt = [
                 'Extract outfit preferences from this message and return JSON only.',
                 'Keys: occasion, activity, styleTags[], avoidTags[], preferences[]',
+                'Infer activity carefully: workout/gym/training should never be collapsed into work.',
+                'Keep preferences focused on what the user explicitly asked for, not generic style assumptions.',
                 `Message: ${message}`,
             ].join('\n');
             const res = await fetch(`https://api-inference.huggingface.co/models/${encodeURIComponent(hfModel)}`, {
@@ -143,6 +148,7 @@ let ChatService = ChatService_1 = class ChatService {
     }
     ruleExtract(message) {
         const txt = message.toLowerCase();
+        const hasWord = (pattern) => pattern.test(txt);
         const styles = [
             'casual',
             'smart',
@@ -152,44 +158,49 @@ let ChatService = ChatService_1 = class ChatService {
             'sporty',
             'puffer',
             'denim',
+            'tailored',
+            'oversized',
         ];
-        const avoidables = ['suede', 'silk', 'airy', 'shorts', 'skirt'];
+        const avoidables = ['suede', 'silk', 'airy', 'shorts', 'skirt', 'heels'];
         const activities = [
-            'work',
-            'school',
-            'gym',
-            'party',
-            'run',
-            'hike',
-            'commute',
+            { key: 'gym', pattern: /\b(gym|workout|training|exercise|lifting)\b/ },
+            { key: 'run', pattern: /\b(run|running|jog|jogging)\b/ },
+            { key: 'hike', pattern: /\b(hike|hiking|trail|outdoor)\b/ },
+            { key: 'commute', pattern: /\bcommute\b/ },
+            { key: 'school', pattern: /\bschool\b/ },
+            { key: 'work', pattern: /\b(work|office|meeting)\b/ },
+            { key: 'party', pattern: /\bparty\b/ },
         ];
         return {
-            occasion: txt.includes('formal')
+            occasion: hasWord(/\bformal\b/)
                 ? 'formal'
-                : txt.includes('work')
-                    ? 'work'
-                    : undefined,
-            activity: activities.find((a) => txt.includes(a)),
-            styleTags: styles.filter((s) => txt.includes(s)),
-            avoidTags: avoidables.filter((a) => txt.includes(`no ${a}`) || txt.includes(`avoid ${a}`)),
+                : hasWord(/\b(dinner|date|party|evening)\b/)
+                    ? 'evening'
+                    : hasWord(/\b(work|office|meeting)\b/)
+                        ? 'work'
+                        : undefined,
+            activity: activities.find((a) => a.pattern.test(txt))?.key,
+            styleTags: styles.filter((s) => new RegExp(`\b${s}\b`).test(txt)),
+            avoidTags: avoidables.filter((a) => txt.includes(`no ${a}`) || txt.includes(`avoid ${a}`) || txt.includes(`without ${a}`)),
             preferences: txt
                 .split(/[.,;!?]/)
                 .map((s) => s.trim())
                 .filter((s) => s.length > 8)
-                .slice(0, 4),
+                .slice(0, 5),
         };
     }
     buildNarrative(dto, prefs, tags, material, cleanMessage, cleanContext, weatherStyle) {
-        const intentText = `${prefs.occasion || ''} ${prefs.activity || ''} ${cleanContext} ${cleanMessage}`.toLowerCase();
+        const intentText = `${prefs.occasion || ''} ${prefs.activity || ''} ${cleanMessage}`.toLowerCase();
         const styleBits = this.styleDirection(intentText, prefs.styleTags || tags);
-        const avoidBits = prefs.avoidTags?.length
-            ? `Skip ${prefs.avoidTags.slice(0, 2).join(' and ')}.`
+        const preferenceHint = prefs.preferences?.length
+            ? ` You mentioned ${prefs.preferences.slice(0, 2).join(' and ')}, so I’ve leaned into that.`
             : '';
-        const event = prefs.occasion ||
-            prefs.activity ||
-            (/(dinner|date|party|evening)/.test(intentText)
-                ? 'dinner plans'
-                : 'your plans');
+        const avoidBits = prefs.avoidTags?.length
+            ? ` Avoid ${prefs.avoidTags.slice(0, 2).join(' and ')}.`
+            : '';
+        const eventHint = prefs.occasion || prefs.activity;
+        const isWorkoutRequest = /\b(gym|workout|training|exercise|lifting|run|running|jog)\b/.test(intentText);
+        const intenseWorkout = /\b(intense|hard|heavy|sweaty|hiit|spin)\b/.test(intentText);
         const noHeels = /(no heels|without heels|don.t want heels|dont want heels)/.test(intentText);
         const wantsStilettos = /(stiletto|stilettos)/.test(intentText);
         const wantsHeels = /(heels|high heels|pumps)/.test(intentText);
@@ -199,22 +210,34 @@ let ChatService = ChatService_1 = class ChatService {
                 ? 'stilettos'
                 : wantsHeels
                     ? 'heels'
-                    : /(dinner|date|party|evening|formal)/.test(intentText)
+                    : /\b(dinner|date|party|evening|formal)\b/.test(intentText)
                         ? 'kitten heels or elegant flats'
-                        : 'clean trainers or loafers';
-        const tone = wantsStilettos || wantsHeels ? 'statement-led' : 'elegant';
-        return (`Great choice for ${event}. I’d go for a ${tone} look: ` +
-            `use ${styleBits} details, choose ${footwear}, and keep one weather-ready outer layer in reserve. ` +
-            `For colours, try ${weatherStyle.palette}; patterns that work well are ${weatherStyle.patterns}; and fabrics to prioritise are ${weatherStyle.fabrics}. ` +
-            `${weatherStyle.note} ${avoidBits}`).trim();
+                        : /\b(gym|workout|training|run|running)\b/.test(intentText)
+                            ? 'supportive trainers'
+                            : 'clean trainers or loafers';
+        const tone = isWorkoutRequest || intenseWorkout
+            ? 'functional and breathable'
+            : wantsStilettos || wantsHeels
+                ? 'statement-led'
+                : 'easy, polished';
+        const opening = eventHint
+            ? `For ${eventHint}, I’d keep it ${tone}.`
+            : `I’d keep this look ${tone}.`;
+        const trainingNote = intenseWorkout
+            ? ' Prioritise breathable layers and easy movement rather than anything structured or heavy.'
+            : '';
+        return (`${opening} ` +
+            `Use ${styleBits} details, choose ${footwear}, and anchor it with ${isWorkoutRequest ? weatherStyle.fabrics : material || weatherStyle.fabrics}.` +
+            ` For colours, try ${weatherStyle.palette}; patterns that work well are ${weatherStyle.patterns}; and fabrics to prioritise are ${weatherStyle.fabrics}.` +
+            ` ${weatherStyle.note}${trainingNote}${preferenceHint}${avoidBits}`).replace(/\s+/g, ' ').trim();
     }
     styleDirection(intentText, hintedTags) {
-        if (/(dinner|date|party|evening|formal)/.test(intentText))
+        if (/\b(dinner|date|party|evening|formal)\b/.test(intentText))
             return 'polished, dressy';
-        if (/(work|office|meeting)/.test(intentText))
-            return 'smart-casual, tailored';
-        if (/(gym|workout|training|run)/.test(intentText))
+        if (/\b(gym|workout|training|run|running)\b/.test(intentText))
             return 'athleisure, performance';
+        if (/\b(work|office|meeting)\b/.test(intentText))
+            return 'smart-casual, tailored';
         const cleaned = (hintedTags || [])
             .map((t) => t.toLowerCase())
             .filter((t) => !['puffer', 'casual', 'recycled cotton'].includes(t))
@@ -231,9 +254,13 @@ let ChatService = ChatService_1 = class ChatService {
             'You are a helpful fashion stylist assistant in a weather-aware outfit app.',
             'Give one concrete outfit suggestion in natural, conversational human language.',
             'Do not output generic defaults; tailor your answer to the event/activity and user message.',
+            'Do not start with phrases like "Great choice for" or repeat the same stock opener every time.',
+            'If the user has not clearly given an event or activity, do not invent one.',
             'Do NOT use headings like "Outfit:", "Palette:", "Patterns:", "Fabrics:", or "Why this works:".',
             'Write like a stylist chatting to a person.',
             'Mention clothing pieces, colour palette, fabric/material, and footwear.',
+            "Explicitly reflect the user's stated activity, intensity, and any things they want to avoid.",
+            'If the message implies training or a workout, focus on breathable performance wear, movement, and supportive footwear rather than workwear.',
             'If user says they do not want a certain item (e.g. heels), respect that explicitly.',
             'If relevant, include one optional layer for later weather changes.',
             'Use British spelling. Keep it concise (3-5 sentences). Do not output JSON.',
@@ -285,7 +312,7 @@ let ChatService = ChatService_1 = class ChatService {
             return fallback;
         }
     }
-    weatherStyleGuidance(climate) {
+    weatherStyleGuidance(climate, prefs, cleanMessage, cleanContext) {
         const temp = Number(climate?.temperatureC ?? 14);
         const precip = Number(climate?.precipProb ?? 0);
         const cold = temp < 10;
@@ -293,6 +320,82 @@ let ChatService = ChatService_1 = class ChatService {
         const warm = temp >= 18;
         const wet = precip >= 45;
         const showery = precip >= 20 && precip < 45;
+        const intentText = `${prefs?.occasion || ''} ${prefs?.activity || ''} ${cleanMessage || ''}`.toLowerCase();
+        const isWorkout = /\b(gym|workout|training|exercise|lifting|run|running|jog)\b/.test(intentText);
+        const isWork = /\b(work|office|meeting)\b/.test(intentText);
+        const isEvening = /\b(dinner|date|party|evening|formal)\b/.test(intentText);
+        if (isWorkout) {
+            if (cold && wet) {
+                return {
+                    palette: 'charcoal, slate, deep olive',
+                    patterns: 'clean blocks or minimal tonal panels',
+                    fabrics: 'technical jersey, moisture-wicking base layers, light weatherproof shell',
+                    note: 'Keep it breathable and movement-friendly, with one weatherproof layer for the journey in and out.',
+                };
+            }
+            if (cold) {
+                return {
+                    palette: 'graphite, navy, muted green',
+                    patterns: 'minimal panels or clean solids',
+                    fabrics: 'technical jersey, brushed performance fabric, breathable base layers',
+                    note: 'Prioritise warmth at the start, but keep the core outfit breathable enough for an intense session.',
+                };
+            }
+            if (warm || showery) {
+                return {
+                    palette: 'soft neutrals with one sharp sport accent',
+                    patterns: 'clean solids or subtle athletic paneling',
+                    fabrics: 'lightweight performance fabric, stretch jersey, breathable mesh layers',
+                    note: 'Keep everything breathable, flexible, and easy to move in.',
+                };
+            }
+            return {
+                palette: 'neutral active tones with one clean accent',
+                patterns: 'minimal solids or tonal athletic panels',
+                fabrics: 'performance jersey, stretch fabric, breathable technical layers',
+                note: 'Aim for comfort, mobility, and sweat-friendly fabrics rather than heavy textures.',
+            };
+        }
+        if (isWork) {
+            if (cold && wet) {
+                return {
+                    palette: 'charcoal, navy, deep burgundy',
+                    patterns: 'subtle checks or clean solids',
+                    fabrics: 'wool blends, cotton shirting, weather-resistant outer layers',
+                    note: 'Keep the outfit polished but practical, with one structured outer layer for the weather.',
+                };
+            }
+            if (cold) {
+                return {
+                    palette: 'espresso, camel, forest green',
+                    patterns: 'herringbone, micro-check, or clean solids',
+                    fabrics: 'wool, knitwear, cotton shirting',
+                    note: 'Use structured layering for warmth while keeping the finish office-appropriate.',
+                };
+            }
+            return {
+                palette: 'stone, navy, soft blue, cream',
+                patterns: 'minimal stripes or tonal textures',
+                fabrics: 'cotton poplin, light wool blends, tailored knits',
+                note: 'Keep the finish smart and clean, with fabrics that hold shape through the day.',
+            };
+        }
+        if (isEvening) {
+            if (cold) {
+                return {
+                    palette: 'black, espresso, burgundy, deep olive',
+                    patterns: 'solid statements or subtle sheen',
+                    fabrics: 'crepe, satin accents, fine knits, tailored wool blends',
+                    note: 'Keep the look elevated and add one refined outer layer for the colder air.',
+                };
+            }
+            return {
+                palette: 'black, cream, rich jewel tones',
+                patterns: 'clean solids or subtle texture',
+                fabrics: 'crepe, satin, draped jersey, lightweight tailoring',
+                note: 'Keep the finish elevated, polished, and slightly dressier than daywear.',
+            };
+        }
         if (cold && wet) {
             return {
                 palette: 'charcoal, navy, deep burgundy',

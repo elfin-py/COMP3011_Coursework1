@@ -18,9 +18,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
-    .setTitle('Circular Fashion Exchange API')
+    .setTitle('Style Forecast API')
     .setDescription(
-      'Routes garments to their best next life: swap, rent, or recycle with explainable scoring.',
+      'Weather- and trend-aware outfit recommendation API with explainable scoring, saved snapshots, and activity-based chat guidance.',
     )
     .setVersion('0.1.0')
     .addBearerAuth()

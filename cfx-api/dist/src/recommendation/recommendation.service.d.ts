@@ -55,6 +55,7 @@ export declare class RecommendationService {
                 windPenalty: number;
                 protection: number;
                 trendBoost: number;
+                materialQuality: number;
                 userBoost: number;
                 total: number;
             }[];
@@ -63,6 +64,7 @@ export declare class RecommendationService {
     }>;
     private customPreferenceBoost;
     private scoreItem;
+    private materialQualityBoost;
     private trendBoost;
     private tempMatch;
 }

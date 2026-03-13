@@ -30,14 +30,22 @@ let RecommendationService = class RecommendationService {
         const climate = await this.climateService.latest(location, datetime);
         if (!climate)
             throw new common_1.NotFoundException('No climate snapshot for location');
-        const outfits = await this.prisma.outfit.findMany({
-            where: userId ? { userId } : undefined,
-            include: { items: { include: { item: true } } },
-            take: 20,
-        });
+        const userScopedOutfits = userId
+            ? await this.prisma.outfit.findMany({
+                where: { userId },
+                include: { items: { include: { item: true } } },
+                take: 20,
+            })
+            : [];
+        const outfits = userScopedOutfits.length
+            ? userScopedOutfits
+            : await this.prisma.outfit.findMany({
+                include: { items: { include: { item: true } } },
+                take: 20,
+            });
         if (outfits.length === 0)
             throw new common_1.NotFoundException('No outfits found to score');
-        const userPref = userId
+        const userPref = userId && userScopedOutfits.length
             ? await this.feedbackService.userAverage(userId)
             : { avg: null, count: 0 };
         const scored = outfits.map((o) => {
@@ -90,6 +98,7 @@ let RecommendationService = class RecommendationService {
         const wind = climate.windKph ?? 0;
         const material = (item.material || '').toLowerCase();
         const tags = item.styleTags ?? [];
+        const materialQuality = this.materialQualityBoost(material, climate.temperatureC, precip, wind, item.waterproof ?? 0);
         let precipPenalty = 0;
         if (precip > 40 && (item.waterproof ?? 0) < 0.3)
             precipPenalty += 0.3;
@@ -114,6 +123,7 @@ let RecommendationService = class RecommendationService {
             0.15 * (1 - windPenalty) +
             0.1 * protection +
             0.15 * trendBoost +
+            materialQuality +
             userBoost -
             coldPenalty;
         return {
@@ -123,9 +133,33 @@ let RecommendationService = class RecommendationService {
             windPenalty,
             protection,
             trendBoost,
+            materialQuality,
             userBoost,
             total,
         };
+    }
+    materialQualityBoost(material, temperatureC, precip, wind, waterproof) {
+        let boost = 0;
+        if (/(wool|merino|cashmere|cotton|linen|denim|leather|silk)/.test(material)) {
+            boost += 0.05;
+        }
+        if (/(recycled cotton|organic cotton|wool blend|linen blend)/.test(material)) {
+            boost += 0.02;
+        }
+        const technicalWeather = precip > 35 || wind > 28 || waterproof >= 0.45;
+        if (/polyester/.test(material)) {
+            boost += technicalWeather ? -0.01 : -0.06;
+        }
+        if (/(nylon|shell|technical)/.test(material)) {
+            boost += technicalWeather ? 0.03 : -0.02;
+        }
+        if (/acrylic/.test(material)) {
+            boost -= 0.04;
+        }
+        if (temperatureC > 20 && /polyester/.test(material) && waterproof < 0.35) {
+            boost -= 0.03;
+        }
+        return Math.max(-0.08, Math.min(0.08, boost));
     }
     async trendBoost(tags, material) {
         const recentNews = await this.trendsService.topTagsRecent('news-rss', 120, 60);

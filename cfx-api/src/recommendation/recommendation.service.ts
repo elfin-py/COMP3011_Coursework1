@@ -31,15 +31,24 @@ export class RecommendationService {
     if (!climate)
       throw new NotFoundException('No climate snapshot for location');
 
-    const outfits = await this.prisma.outfit.findMany({
-      where: userId ? { userId } : undefined,
-      include: { items: { include: { item: true } } },
-      take: 20,
-    });
+    const userScopedOutfits = userId
+      ? await this.prisma.outfit.findMany({
+          where: { userId },
+          include: { items: { include: { item: true } } },
+          take: 20,
+        })
+      : [];
+
+    const outfits = userScopedOutfits.length
+      ? userScopedOutfits
+      : await this.prisma.outfit.findMany({
+          include: { items: { include: { item: true } } },
+          take: 20,
+        });
     if (outfits.length === 0)
       throw new NotFoundException('No outfits found to score');
 
-    const userPref = userId
+    const userPref = userId && userScopedOutfits.length
       ? await this.feedbackService.userAverage(userId)
       : { avg: null, count: 0 };
 
@@ -113,6 +122,13 @@ export class RecommendationService {
     const wind = climate.windKph ?? 0;
     const material = (item.material || '').toLowerCase();
     const tags: string[] = item.styleTags ?? [];
+    const materialQuality = this.materialQualityBoost(
+      material,
+      climate.temperatureC,
+      precip,
+      wind,
+      item.waterproof ?? 0,
+    );
 
     // penalties
     let precipPenalty = 0;
@@ -152,6 +168,7 @@ export class RecommendationService {
       0.15 * (1 - windPenalty) +
       0.1 * protection +
       0.15 * trendBoost +
+      materialQuality +
       userBoost -
       coldPenalty;
 
@@ -162,9 +179,43 @@ export class RecommendationService {
       windPenalty,
       protection,
       trendBoost,
+      materialQuality,
       userBoost,
       total,
     };
+  }
+
+  private materialQualityBoost(
+    material: string,
+    temperatureC: number,
+    precip: number,
+    wind: number,
+    waterproof: number,
+  ) {
+    let boost = 0;
+
+    if (/(wool|merino|cashmere|cotton|linen|denim|leather|silk)/.test(material)) {
+      boost += 0.05;
+    }
+    if (/(recycled cotton|organic cotton|wool blend|linen blend)/.test(material)) {
+      boost += 0.02;
+    }
+
+    const technicalWeather = precip > 35 || wind > 28 || waterproof >= 0.45;
+    if (/polyester/.test(material)) {
+      boost += technicalWeather ? -0.01 : -0.06;
+    }
+    if (/(nylon|shell|technical)/.test(material)) {
+      boost += technicalWeather ? 0.03 : -0.02;
+    }
+    if (/acrylic/.test(material)) {
+      boost -= 0.04;
+    }
+    if (temperatureC > 20 && /polyester/.test(material) && waterproof < 0.35) {
+      boost -= 0.03;
+    }
+
+    return Math.max(-0.08, Math.min(0.08, boost));
   }
 
   private async trendBoost(tags: string[], material: string) {

@@ -1,6 +1,6 @@
 # Style Forecast API
 
-API for climate-aware outfit recommendations and fashion trend analysis. It resolves forecast context, ingests magazine/news trend signals, stores recommendation feedback and snapshots, and scores outfits with explainable weather + trend-aware heuristics.
+API for climate-aware outfit recommendations and fashion trend analysis. It resolves forecast context, ingests magazine/news trend signals, stores recommendation snapshots, and scores outfits with explainable weather + trend-aware heuristics.
 
 ## Quickstart
 1. Install Node 18+ and Docker.
@@ -13,8 +13,8 @@ API for climate-aware outfit recommendations and fashion trend analysis. It reso
 8. Set strong JWT secrets in `.env`, then run: `npm run start:dev` (Swagger at http://localhost:3000/docs, health at http://localhost:3000/api/health)
 
 ## Core assessed system
-- Core user-facing workflow: request a recommendation for a location and time, inspect the scored result, save it, and refine future outputs through feedback.
-- Core persistence supporting that workflow: `User`, `Profile`, `Outfit`, `Item`, `ClimateSnapshot`, `OutfitUsage`, `SavedRecommendation`, and `Feedback`.
+- Core user-facing workflow: request a recommendation for a location and time, inspect the scored result, and save it for later review.
+- Core persistence supporting that workflow: `User`, `Profile`, `Outfit`, `Item`, `ClimateSnapshot`, `OutfitUsage`, and `SavedRecommendation`.
 - Supporting extensions: listings, matching, donations, recycling, shipment, and analytics modules. These extend the codebase but are not the primary narrative of the final submission.
 
 ## Scripts
@@ -31,9 +31,10 @@ API for climate-aware outfit recommendations and fashion trend analysis. It reso
 - User profiles with saved home location and timezone
 - Item and outfit resources supporting assessed CRUD and stored recommendation structures
 - Climate snapshots with `validFor` for forecast-aware scoring
-- Recommendation `GET /recommendations/outfit?location=...&datetime=...` with optional authenticated personalisation
+- Recommendation `GET /recommendations/outfit?location=...&datetime=...` with explainable weather + trend-aware scoring
 - Trend ingestion + endpoints (`/trends/top`, `/trends/materials`, Pinterest/Google inspiration helpers)
-- Saved recommendation snapshots and feedback-driven scoring
+- Activity-chip chat assistant for streamlined work/school/gym/dinner/commute guidance
+- Saved recommendation snapshots with stored, deduped inspiration images
 - Outfit usage logging with captured climate context
 - Listings lifecycle with create/update/delete support
 - Analytics `/analytics/impact`, `/analytics/match-success`, `/analytics/recycler-capacity`, `/analytics/comfort-vs-temp`
@@ -54,7 +55,7 @@ curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"styleuser","password":"Password1","cityLat":53.8,"cityLon":-1.55}'
 ```
-Login (get accessToken):
+Log in (get accessToken):
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
@@ -86,20 +87,13 @@ curl -X POST http://localhost:3000/api/outfits/$OUTFIT_ID/usage \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"location":"Leeds","usedAt":"2026-03-20T09:00:00Z"}'
 ```
-Send feedback on a recommendation:
-```bash
-curl -X POST http://localhost:3000/api/feedback/recommendation \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"targetId":"'"'"$OUTFIT_ID'"'" ,"rating":5,"note":"Great for rain"}'
-```
-
 ## Scoring (simplified)
 - Temperature match favors insulation suited to ambient temp.
 - Rain penalty for suede/low-waterproof items when precipProb is high.
 - Wind penalty for skirts/dresses in high wind.
 - Trend boost if item tags/materials appear in top trends (`SocialTrend`).
-- User-adaptive boost based on feedback averages.
-- Overall score combines comfort, rain/wind protection, trend boost, user boost.
+- Optional authenticated context can support future extension points, but the main live scoring signals are weather fit and trend relevance.
+- Overall score combines comfort, rain/wind protection, and trend influence in one bounded, explainable score.
 
 ## CI
 - Verified automated test gate for this project is `npm run ci:test`, which runs unit and e2e coverage.
